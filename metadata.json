@@ -1,0 +1,7 @@
+{
+  "name": "MockMate AI",
+  "description": "An intelligent mock interview platform that adapts to your specific job description or target role.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
