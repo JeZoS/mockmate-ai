@@ -1,5 +1,5 @@
 // Wrapper for Backend API calls
-const API_URL = import.meta.env.VITE_API_URL || 'https://mockmate-ai-rxq0.onrender.com/api';
+// const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 export const getAuthHeader = () => {
   const token = localStorage.getItem('token');
@@ -9,7 +9,7 @@ export const getAuthHeader = () => {
 export const api = {
   // Auth
   login: async (email, password) => {
-    const res = await fetch(`${API_URL}/auth/login`, {
+    const res = await fetch(`/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -19,7 +19,7 @@ export const api = {
   },
 
   register: async (name, email, password) => {
-    const res = await fetch(`${API_URL}/auth/register`, {
+    const res = await fetch(`/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password })
@@ -30,7 +30,7 @@ export const api = {
 
   // Interviews
   createInterview: async (data) => {
-    const res = await fetch(`${API_URL}/interviews`, {
+    const res = await fetch(`/api/interviews`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -42,7 +42,7 @@ export const api = {
   },
 
   getMyInterviews: async () => {
-    const res = await fetch(`${API_URL}/interviews`, {
+    const res = await fetch(`/api/interviews`, {
       method: 'GET',
       headers: { ...getAuthHeader() }
     });
@@ -50,7 +50,7 @@ export const api = {
   },
 
   getInterview: async (id) => {
-    const res = await fetch(`${API_URL}/interviews/${id}`, {
+    const res = await fetch(`/api/interviews/${id}`, {
       method: 'GET',
       headers: { ...getAuthHeader() }
     });
@@ -58,7 +58,7 @@ export const api = {
   },
 
   updateInterview: async (id, data) => {
-    const res = await fetch(`${API_URL}/interviews/${id}`, {
+    const res = await fetch(`/api/interviews/${id}`, {
       method: 'PUT',
       headers: { 
         'Content-Type': 'application/json',
@@ -70,7 +70,7 @@ export const api = {
   },
 
   deleteInterview: async (id) => {
-    const res = await fetch(`${API_URL}/interviews/${id}`, {
+    const res = await fetch(`/api/interviews/${id}`, {
       method: 'DELETE',
       headers: { ...getAuthHeader() }
     });
@@ -79,7 +79,7 @@ export const api = {
 
   // Admin
   getAdminStats: async () => {
-    const res = await fetch(`${API_URL}/admin/stats`, {
+    const res = await fetch(`/api/admin/stats`, {
       method: 'GET',
       headers: { ...getAuthHeader() }
     });
@@ -88,7 +88,7 @@ export const api = {
   },
 
   getAllUsers: async () => {
-    const res = await fetch(`${API_URL}/admin/users`, {
+    const res = await fetch(`/api/admin/users`, {
       method: 'GET',
       headers: { ...getAuthHeader() }
     });
@@ -100,7 +100,7 @@ export const api = {
   chatStream: async (history, message, config, onChunk) => {
     const payload = { history, message, ...config };
     
-    const res = await fetch(`${API_URL}/ai/chat`, {
+    const res = await fetch(`/api/ai/chat`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -123,7 +123,7 @@ export const api = {
   },
 
   generateFeedback: async (prompt, language) => {
-    const res = await fetch(`${API_URL}/ai/feedback`, {
+    const res = await fetch(`/api/ai/feedback`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ export const api = {
   },
 
   generateSpeech: async (text) => {
-    const res = await fetch(`${API_URL}/ai/tts`, {
+    const res = await fetch(`/api/ai/tts`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
