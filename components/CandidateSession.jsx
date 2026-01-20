@@ -80,9 +80,6 @@ export const CandidateSession = () => {
             } finally {
                 setIsResuming(false);
             }
-        } else {
-            setIsResuming(false);   navigate('/mockmate/candidate/dashboard');
-            
         }
     };
     initSession();
