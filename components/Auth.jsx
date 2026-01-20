@@ -39,9 +39,10 @@ export const Auth = ({ onLoginSuccess }) => {
           client_id: "29688754422-1cm4i8vdffevoav9pfuo624gbk9p43oq.apps.googleusercontent.com",
           callback: handleGoogleResponse
         });
+        const parentDiv = document.getElementById("googleSignInDiv");
         window.google.accounts.id.renderButton(
-          document.getElementById("googleSignInDiv"),
-          { theme: "outline", size: "large", width: "100%" }
+          parentDiv,
+          { theme: "outline", size: "large", width: parentDiv?.offsetWidth || 350 }
         );
       }
     };
