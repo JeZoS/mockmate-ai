@@ -121,7 +121,7 @@ export const Landing = ({ onSelectMode, totalQuestions, onTotalQuestionsChange }
                 </div>
             </div>
 
-            <footer className="absolute bottom-6 text-slate-400 text-sm">Powered by Gemini</footer>
+            {/* <footer className="absolute bottom-6 text-slate-400 text-sm">Powered by Gemini</footer> */}
         </div>
     );
 };
