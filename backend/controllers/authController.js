@@ -26,6 +26,7 @@ exports.registerUser = async (req, res) => {
         name: user.name,
         email: user.email,
         isAdmin: user.isAdmin,
+        profileCompleted: user.profileCompleted,
         token: generateToken(user._id),
       });
     } else {
@@ -48,6 +49,7 @@ exports.loginUser = async (req, res) => {
         name: user.name,
         email: user.email,
         isAdmin: user.isAdmin,
+        profileCompleted: user.profileCompleted,
         token: generateToken(user._id),
       });
     } else {
@@ -69,6 +71,7 @@ exports.getMe = async (req, res) => {
       name: req.user.name,
       email: req.user.email,
       isAdmin: req.user.isAdmin,
+      profileCompleted: req.user.profileCompleted,
     });
   } catch (error) {
     console.error('GetMe error:', error.message);
@@ -87,8 +90,10 @@ exports.googleLogin = async (req, res) => {
     const { name, email } = ticket.getPayload();
 
     let user = await User.findOne({ email });
+    let isNewUser = false;
 
     if (!user) {
+      isNewUser = true;
       user = await User.create({
         name,
         email,
@@ -101,6 +106,8 @@ exports.googleLogin = async (req, res) => {
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
+      profileCompleted: user.profileCompleted,
+      isNewUser,
       token: generateToken(user._id),
     });
   } catch (error) {

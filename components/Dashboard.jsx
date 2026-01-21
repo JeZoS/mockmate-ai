@@ -1,9 +1,69 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { Button } from './ui/Button';
-import { Play, FileText, Trash2, Loader2, Plus } from 'lucide-react';
+import { Play, FileText, Trash2, Loader2, Plus, Code2, Bell, Search } from 'lucide-react';
+import { useAppStore } from '../store/useAppStore';
 
-export const Dashboard = ({ onStartNew, onResume, onViewReport }) => {
+// Dashboard Header Component
+const DashboardHeader = ({ onMenuClick }) => {
+  const { user } = useAppStore();
+  
+  return (
+    <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo & Brand */}
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl text-white">
+              <Code2 size={24} />
+            </div>
+            <div className="hidden sm:block">
+              <h1 className="text-xl font-bold text-slate-900">MockMate</h1>
+              <p className="text-xs text-slate-500 -mt-0.5">AI Interview Coach</p>
+            </div>
+          </div>
+
+          {/* Search Bar - Hidden on mobile */}
+          {/* <div className="hidden md:flex flex-1 max-w-md mx-8">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                type="text"
+                placeholder="Search interviews..."
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div> */}
+
+          {/* Right Section */}
+          <div className="flex items-center gap-3">
+            {/* Notifications */}
+            {/* <button className="relative p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors">
+              <Bell size={20} />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button> */}
+
+            {/* User Profile */}
+            <button 
+              onClick={onMenuClick}
+              className="flex items-center gap-3 p-1.5 pr-3 hover:bg-slate-100 rounded-xl transition-colors"
+            >
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm">
+                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-sm font-medium text-slate-700 leading-tight">{user?.name || 'User'}</p>
+                <p className="text-xs text-slate-500 leading-tight">{user?.experienceLevel || 'Candidate'}</p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export const Dashboard = ({ onStartNew, onResume, onViewReport, onMenuClick }) => {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,16 +96,54 @@ export const Dashboard = ({ onStartNew, onResume, onViewReport }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 md:p-12">
-      <div className="max-w-5xl mx-auto space-y-8">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Your Interviews</h1>
-            <p className="text-slate-500">Track your progress and review feedback.</p>
+    <div className="min-h-screen bg-slate-50">
+      <DashboardHeader onMenuClick={onMenuClick} />
+      
+      <div className="max-w-6xl mx-auto p-6 md:p-8 space-y-8">
+        {/* Welcome Section */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 md:p-8 text-white">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome back! 👋</h1>
+              <p className="text-blue-100 text-sm md:text-base">
+                Ready to ace your next interview? Track your progress and keep practicing.
+              </p>
+            </div>
+            <Button 
+              onClick={onStartNew} 
+              className="bg-white text-blue-600 hover:bg-blue-50 shadow-lg"
+            >
+              <Plus size={20} className="mr-2" /> Start New Interview
+            </Button>
           </div>
-          <Button onClick={onStartNew} size="md" className="shadow-lg shadow-blue-500/20">
-            <Plus size={20} className="mr-2" /> Start New Interview
-          </Button>
+          
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-white/20">
+            <div className="text-center">
+              <p className="text-2xl md:text-3xl font-bold">{interviews.length}</p>
+              <p className="text-xs md:text-sm text-blue-100">Total Interviews</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl md:text-3xl font-bold">
+                {interviews.filter(i => i.status === 'COMPLETED').length}
+              </p>
+              <p className="text-xs md:text-sm text-blue-100">Completed</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl md:text-3xl font-bold">
+                {interviews.filter(i => i.status === 'IN_PROGRESS').length}
+              </p>
+              <p className="text-xs md:text-sm text-blue-100">In Progress</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Section Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Your Interviews</h2>
+            <p className="text-sm text-slate-500">Review your practice sessions and feedback</p>
+          </div>
         </div>
 
         {loading ? (

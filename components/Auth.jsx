@@ -13,17 +13,24 @@ export const Auth = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const navigateAfterAuth = (data, isNewRegistration = false) => {
+    if (data.isAdmin) {
+      navigate('/mockmate/admin');
+    } else if (isNewRegistration || !data.profileCompleted) {
+      // New users or users who haven't completed profile go to profile setup
+      navigate('/mockmate/candidate/profile-setup');
+    } else {
+      navigate('/mockmate/candidate/dashboard');
+    }
+  };
+
   const handleGoogleResponse = async (response) => {
     setLoading(true);
     try {
       const data = await api.googleLogin(response.credential);
       localStorage.setItem('token', data.token);
       onLoginSuccess(data);
-      if (data.isAdmin) {
-        navigate('/mockmate/admin');
-      } else {
-        navigate('/mockmate/candidate/dashboard');
-      }
+      navigateAfterAuth(data, data.isNewUser);
     } catch (err) {
       console.error(err);
       setError('Google Login failed.');
@@ -65,19 +72,16 @@ export const Auth = ({ onLoginSuccess }) => {
     setLoading(true);
     try {
       let data;
+      let isNewRegistration = false;
       if (isLogin) {
         data = await api.login(email, password);
       } else {
         data = await api.register(name, email, password);
+        isNewRegistration = true;
       }
       localStorage.setItem('token', data.token);
       onLoginSuccess(data);
-      
-      if (data.isAdmin) {
-        navigate('/mockmate/admin');
-      } else {
-        navigate('/mockmate/candidate/dashboard');
-      }
+      navigateAfterAuth(data, isNewRegistration);
     } catch (err) {
       setError('Authentication failed. Please check credentials.');
     } finally {

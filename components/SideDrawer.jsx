@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, LogOut, User, LayoutDashboard, PlayCircle, FileText } from 'lucide-react';
+import { X, LogOut, User, LayoutDashboard, PlayCircle, FileText, Settings } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 
@@ -25,6 +25,7 @@ export const SideDrawer = ({ isOpen, onClose }) => {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/mockmate/candidate/dashboard' },
     { icon: PlayCircle, label: 'Practice Interview', path: '/mockmate/candidate/practice' },
+    { icon: Settings, label: 'Profile Settings', path: '/mockmate/candidate/profile' },
   ];
 
   return (

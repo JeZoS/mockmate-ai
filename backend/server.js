@@ -8,8 +8,10 @@ const interviewRoutes = require('./routes/interviewRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const audioRoutes = require('./routes/audioRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const app = express();
+app.disable('x-powered-by');
 const PORT = process.env.PORT || 5001;
 
 // Middleware
@@ -27,6 +29,7 @@ app.use('/api/interviews', interviewRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/audio', audioRoutes);
+app.use('/api/user', userRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

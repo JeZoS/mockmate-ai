@@ -19,14 +19,69 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Profile fields
+  phone: {
+    type: String,
+    default: ''
+  },
+  experienceLevel: {
+    type: String,
+    enum: ['fresher', 'junior', 'mid', 'senior', 'lead', 'manager', ''],
+    default: ''
+  },
+  yearsOfExperience: {
+    type: Number,
+    default: 0
+  },
+  currentRole: {
+    type: String,
+    default: ''
+  },
+  targetRole: {
+    type: String,
+    default: ''
+  },
+  skills: [{
+    type: String
+  }],
+  linkedinUrl: {
+    type: String,
+    default: ''
+  },
+  githubUrl: {
+    type: String,
+    default: ''
+  },
+  resumeUrl: {
+    type: String,
+    default: ''
+  },
+  resumeS3Key: {
+    type: String,
+    default: ''
+  },
+  resumeFileName: {
+    type: String,
+    default: ''
+  },
+  profileCompleted: {
+    type: Boolean,
+    default: false
+  },
   createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
     type: Date,
     default: Date.now
   }
 });
 
-// Encrypt password
+// Update timestamp on save
 UserSchema.pre('save', async function() {
+  this.updatedAt = Date.now();
+  
   if (!this.isModified('password')) {
     return;
   }

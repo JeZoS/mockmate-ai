@@ -52,6 +52,36 @@ export const api = {
     return data;
   },
 
+  // User Profile
+  getProfile: async () => {
+    const { data } = await axiosInstance.get('/api/user/profile');
+    return data;
+  },
+
+  updateProfile: async (profileData) => {
+    const { data } = await axiosInstance.put('/api/user/profile', profileData);
+    return data;
+  },
+
+  completeProfileSetup: async (profileData) => {
+    const { data } = await axiosInstance.post('/api/user/profile/complete', profileData);
+    return data;
+  },
+
+  uploadResume: async (file) => {
+    const formData = new FormData();
+    formData.append('resume', file);
+    const { data } = await axiosInstance.post('/api/user/resume', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return data;
+  },
+
+  deleteResume: async () => {
+    const { data } = await axiosInstance.delete('/api/user/resume');
+    return data;
+  },
+
   createInterview: async (interviewData) => {
     const { data } = await axiosInstance.post('/api/interviews', interviewData);
     return data;

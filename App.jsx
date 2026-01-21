@@ -6,6 +6,8 @@ import { Dashboard } from './components/Dashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { CandidateSession } from './components/CandidateSession';
 import { ReportView } from './components/ReportView';
+import { ProfileSetup } from './components/ProfileSetup';
+import { UserProfile } from './components/UserProfile';
 import { AppState } from './types';
 import { Code2, ArrowRight } from 'lucide-react';
 import { SideDrawer } from './components/SideDrawer';
@@ -84,14 +86,12 @@ const DashboardWrapper = () => {
 
     return (
         <div className="relative min-h-screen bg-slate-50">
-            <div className="absolute top-6 right-6 z-10">
-                <MenuButton onClick={() => setIsDrawerOpen(true)} />
-            </div>
             <SideDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />
             <Dashboard 
                 onStartNew={handleStartNew} 
                 onResume={handleResume} 
-                onViewReport={handleViewReport} 
+                onViewReport={handleViewReport}
+                onMenuClick={() => setIsDrawerOpen(true)}
             />
         </div>
     );
@@ -129,6 +129,18 @@ export default function App() {
         <Route path="/mockmate/candidate/dashboard" element={
             <ProtectedCandidateRoute>
                 <DashboardWrapper />
+            </ProtectedCandidateRoute>
+        } />
+        
+        <Route path="/mockmate/candidate/profile-setup" element={
+            <ProtectedCandidateRoute>
+                <ProfileSetup />
+            </ProtectedCandidateRoute>
+        } />
+        
+        <Route path="/mockmate/candidate/profile" element={
+            <ProtectedCandidateRoute>
+                <UserProfile />
             </ProtectedCandidateRoute>
         } />
         

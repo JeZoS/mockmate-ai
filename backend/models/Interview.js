@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-// Schema for audio recordings
 const AudioRecordingSchema = new mongoose.Schema({
   s3Key: {
     type: String,
@@ -55,7 +54,6 @@ const InterviewSchema = new mongoose.Schema({
       }
     }]
   }],
-  // Audio recordings for each response
   audioRecordings: [AudioRecordingSchema],
   date: {
     type: Date,
