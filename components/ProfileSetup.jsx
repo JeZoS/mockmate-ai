@@ -4,7 +4,8 @@ import { api } from '../services/api';
 import { 
   User, Briefcase, Code, Upload, X, FileText, 
   Linkedin, Github, Phone, Target, Loader2, CheckCircle,
-  Sparkles, Globe, GraduationCap, ArrowRight, SkipForward
+  Sparkles, Globe, GraduationCap, ArrowRight, SkipForward,
+  Info, HelpCircle, RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
@@ -49,6 +50,27 @@ export const ProfileSetup = () => {
   const [step, setStep] = useState(1); // 1: Resume Upload, 2: Basic Info, 3: Professional Details
   const [extractedData, setExtractedData] = useState(null);
   const [showExtractedBadge, setShowExtractedBadge] = useState({});
+  const [useExistingResume, setUseExistingResume] = useState(false);
+  const [showTargetRoleTooltip, setShowTargetRoleTooltip] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  // Fetch user profile on mount to get resume info
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const profile = await api.getProfile();
+        setUser(profile);
+      } catch (err) {
+        console.error('Error fetching profile:', err);
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+    fetchProfile();
+  }, [setUser]);
+
+  // Check if user has an existing resume
+  const hasExistingResume = user?.resumeFileName && user?.resumeUrl;
 
   const isTechRole = formData.roleType === 'tech';
 
@@ -73,8 +95,8 @@ export const ProfileSetup = () => {
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        setError('File size must be less than 10MB');
+      if (file.size > 7 * 1024 * 1024) {
+        setError('File size must be less than 7MB');
         return;
       }
       const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
@@ -163,8 +185,81 @@ export const ProfileSetup = () => {
     setResume(null);
     setExtractedData(null);
     setShowExtractedBadge({});
+    setUseExistingResume(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleUseExistingResume = async () => {
+    setUseExistingResume(true);
+    setParsingResume(true);
+    setError('');
+    
+    try {
+      // Fetch and parse the existing resume
+      const result = await api.parseExistingResume();
+      
+      if (result.extractedData) {
+        setExtractedData(result.extractedData);
+        
+        // Auto-fill form with extracted data
+        const extracted = result.extractedData;
+        const fieldsToUpdate = {};
+        const badges = {};
+        
+        if (extracted.name && extracted.name.trim()) {
+          fieldsToUpdate.name = extracted.name;
+          badges.name = true;
+        }
+        if (extracted.phone && extracted.phone.trim()) {
+          fieldsToUpdate.phone = extracted.phone;
+          badges.phone = true;
+        }
+        if (extracted.currentRole && extracted.currentRole.trim()) {
+          fieldsToUpdate.currentRole = extracted.currentRole;
+          badges.currentRole = true;
+        }
+        if (extracted.skills && extracted.skills.length > 0) {
+          fieldsToUpdate.skills = Array.isArray(extracted.skills) 
+            ? extracted.skills.join(', ') 
+            : extracted.skills;
+          badges.skills = true;
+        }
+        if (extracted.linkedinUrl && extracted.linkedinUrl.trim()) {
+          fieldsToUpdate.linkedinUrl = extracted.linkedinUrl;
+          badges.linkedinUrl = true;
+        }
+        if (extracted.githubUrl && extracted.githubUrl.trim()) {
+          fieldsToUpdate.githubUrl = extracted.githubUrl;
+          badges.githubUrl = true;
+        }
+        if (extracted.portfolioUrl && extracted.portfolioUrl.trim()) {
+          fieldsToUpdate.portfolioUrl = extracted.portfolioUrl;
+          badges.portfolioUrl = true;
+        }
+        if (extracted.experienceLevel && extracted.experienceLevel.trim()) {
+          fieldsToUpdate.experienceLevel = extracted.experienceLevel;
+          badges.experienceLevel = true;
+        }
+        if (extracted.yearsOfExperience) {
+          fieldsToUpdate.yearsOfExperience = extracted.yearsOfExperience;
+          badges.yearsOfExperience = true;
+        }
+        if (extracted.roleType) {
+          fieldsToUpdate.roleType = extracted.roleType;
+          badges.roleType = true;
+        }
+        
+        setFormData(prev => ({ ...prev, ...fieldsToUpdate }));
+        setShowExtractedBadge(badges);
+      }
+    } catch (err) {
+      console.error('Resume parsing error:', err);
+      setError('Failed to parse existing resume. You can upload a new one or fill details manually.');
+      setUseExistingResume(false);
+    } finally {
+      setParsingResume(false);
     }
   };
 
@@ -275,17 +370,61 @@ export const ProfileSetup = () => {
                   <p className="text-slate-500 mt-2">We'll extract your details automatically using AI</p>
                 </div>
 
-                {!resume ? (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all group"
-                  >
-                    <Upload className="mx-auto text-slate-400 group-hover:text-blue-500 mb-4 transition-colors" size={40} />
-                    <p className="text-slate-600 font-medium">Click to upload your resume</p>
-                    <p className="text-sm text-slate-400 mt-2">PDF, DOC, or DOCX (max 10MB)</p>
-                    <div className="mt-4 flex items-center justify-center gap-2 text-purple-600 text-sm">
-                      <Sparkles size={14} />
-                      <span>AI will extract skills, experience & more</span>
+                {/* Info about updating details later */}
+                <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                  <Info size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-amber-800">
+                    AI extraction may not be 100% accurate. Don't worry — you can review and update all details in the next steps or later from your profile settings.
+                  </p>
+                </div>
+
+                {/* Loading state while fetching profile */}
+                {loadingProfile ? (
+                  <div className="flex items-center justify-center gap-3 p-8 border-2 border-dashed border-slate-200 rounded-xl">
+                    <Loader2 className="animate-spin text-slate-400" size={24} />
+                    <span className="text-slate-500">Checking for existing resume...</span>
+                  </div>
+                ) : !resume && !useExistingResume ? (
+                  <div className="space-y-4">
+                    {/* Existing Resume Option */}
+                    {hasExistingResume && false && (
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <FileText className="text-blue-600" size={20} />
+                            <div>
+                              <p className="font-medium text-slate-700">Previously uploaded resume</p>
+                              <p className="text-xs text-slate-500">{user.resumeFileName}</p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleUseExistingResume}
+                            disabled={parsingResume}
+                          >
+                            <RefreshCw size={14} className="mr-1" />
+                            Use This
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Upload New Resume */}
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all group"
+                    >
+                      <Upload className="mx-auto text-slate-400 group-hover:text-blue-500 mb-4 transition-colors" size={40} />
+                      <p className="text-slate-600 font-medium">
+                        {hasExistingResume ? 'Or upload a new resume' : 'Click to upload your resume'}
+                      </p>
+                      <p className="text-sm text-slate-400 mt-2">PDF, DOC, or DOCX (max 7MB)</p>
+                      <div className="mt-4 flex items-center justify-center gap-2 text-purple-600 text-sm">
+                        <Sparkles size={14} />
+                        <span>AI will extract skills, experience & more</span>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -293,8 +432,12 @@ export const ProfileSetup = () => {
                     <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
                       <CheckCircle className="text-emerald-500 flex-shrink-0" size={24} />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-700 truncate">{resume.name}</p>
-                        <p className="text-xs text-slate-500">{(resume.size / 1024).toFixed(1)} KB</p>
+                        <p className="font-medium text-slate-700 truncate">
+                          {resume ? resume.name : user?.resumeFileName}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {resume ? `${(resume.size / 1024).toFixed(1)} KB` : 'Using existing resume'}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -368,7 +511,7 @@ export const ProfileSetup = () => {
                     onClick={handleNext}
                     disabled={parsingResume}
                   >
-                    {resume ? 'Continue' : 'Continue without resume'}
+                    {(resume || useExistingResume) ? 'Continue' : 'Continue without resume'}
                     <ArrowRight size={16} className="ml-2" />
                   </Button>
                 </div>
@@ -378,6 +521,16 @@ export const ProfileSetup = () => {
             {/* Step 2: Basic Info */}
             {step === 2 && (
               <div className="space-y-6">
+                {/* Verification notice if data was extracted */}
+                {Object.keys(showExtractedBadge).length > 0 && (
+                  <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                    <Info size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-blue-800">
+                      <strong>Please verify:</strong> We've pre-filled some fields from your resume. Please review and correct any information that may be inaccurate.
+                    </p>
+                  </div>
+                )}
+
                 {/* Name */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -469,6 +622,16 @@ export const ProfileSetup = () => {
             {/* Step 3: Professional Details */}
             {step === 3 && (
               <div className="space-y-6">
+                {/* Verification notice if data was extracted */}
+                {Object.keys(showExtractedBadge).length > 0 && (
+                  <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                    <Info size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-blue-800">
+                      <strong>Please verify:</strong> Review the auto-filled fields below and make corrections if needed.
+                    </p>
+                  </div>
+                )}
+
                 {/* Current & Target Role */}
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
@@ -486,10 +649,26 @@ export const ProfileSetup = () => {
                       placeholder={isTechRole ? "e.g., Software Engineer" : "e.g., Marketing Manager"}
                     />
                   </div>
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       <Target size={16} className="inline mr-2" />
                       Target Role
+                      <button
+                        type="button"
+                        className="ml-1 text-slate-400 hover:text-slate-600 inline-flex"
+                        onMouseEnter={() => setShowTargetRoleTooltip(true)}
+                        onMouseLeave={() => setShowTargetRoleTooltip(false)}
+                        onClick={() => setShowTargetRoleTooltip(!showTargetRoleTooltip)}
+                      >
+                        <HelpCircle size={14} />
+                      </button>
+                      {showTargetRoleTooltip && (
+                        <div className="absolute left-0 top-full mt-1 z-10 w-64 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-lg">
+                          <p><strong>Target Role</strong> is the position you're preparing to interview for. This helps us tailor interview questions to your career goals.</p>
+                          <p className="mt-1 text-slate-300">Example: If you're a Junior Developer aiming for a Senior role, enter "Senior Developer".</p>
+                          <div className="absolute -top-1 left-4 w-2 h-2 bg-slate-800 rotate-45"></div>
+                        </div>
+                      )}
                     </label>
                     <input
                       type="text"

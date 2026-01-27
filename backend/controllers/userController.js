@@ -289,6 +289,121 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanation.`
   }
 };
 
+// Parse existing resume (already uploaded)
+exports.parseExistingResume = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!user.resumeS3Key) {
+      return res.status(400).json({ message: 'No resume found. Please upload a resume first.' });
+    }
+
+    // Get the resume from S3
+    const { GetObjectCommand, S3Client } = require('@aws-sdk/client-s3');
+    const s3Client = new S3Client({
+      region: process.env.AWS_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+      }
+    });
+
+    const command = new GetObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET || 'mockmate-interviews',
+      Key: user.resumeS3Key
+    });
+
+    const response = await s3Client.send(command);
+    
+    // Convert stream to buffer
+    const chunks = [];
+    for await (const chunk of response.Body) {
+      chunks.push(chunk);
+    }
+    const fileBuffer = Buffer.concat(chunks);
+    
+    // Determine mime type from file extension
+    const extension = user.resumeS3Key.split('.').pop().toLowerCase();
+    let mimeType = 'application/pdf';
+    if (extension === 'doc') mimeType = 'application/msword';
+    if (extension === 'docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+    // Convert file to base64 for Gemini
+    const base64Data = fileBuffer.toString('base64');
+
+    // Use Gemini to parse the resume
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Data
+              }
+            },
+            {
+              text: `Analyze this resume and extract the following information in JSON format. Be precise and extract only what's clearly mentioned in the resume.
+
+Return a JSON object with these fields:
+{
+  "name": "Full name of the candidate",
+  "phone": "Phone number if found, otherwise empty string",
+  "email": "Email address if found, otherwise empty string",
+  "currentRole": "Current or most recent job title",
+  "skills": ["Array of key skills mentioned"],
+  "linkedinUrl": "LinkedIn URL if found, otherwise empty string",
+  "githubUrl": "GitHub URL if found, otherwise empty string",
+  "portfolioUrl": "Portfolio/personal website URL if found, otherwise empty string",
+  "experienceLevel": "One of: fresher, junior, mid, senior, lead, manager - based on years of experience",
+  "yearsOfExperience": "Number representing total years of experience",
+  "education": "Highest education qualification",
+  "summary": "A brief 1-2 sentence professional summary",
+  "roleType": "tech or non-tech based on the resume content - tech includes software, engineering, data, IT roles; non-tech includes sales, marketing, HR, finance, operations, etc."
+}
+
+IMPORTANT: Return ONLY valid JSON, no markdown, no explanation.`
+            }
+          ]
+        }
+      ],
+      config: {
+        temperature: 0.2,
+        maxOutputTokens: 2048
+      }
+    });
+
+    let extractedData = {};
+    try {
+      let responseText = result.text.trim();
+      responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      extractedData = JSON.parse(responseText);
+    } catch (parseErr) {
+      console.error('Error parsing AI response:', parseErr);
+      console.error('Raw response:', result.text);
+      return res.json({
+        message: 'Resume parsing failed',
+        resumeFileName: user.resumeFileName,
+        extractedData: null
+      });
+    }
+
+    res.json({
+      message: 'Resume parsed successfully',
+      resumeFileName: user.resumeFileName,
+      extractedData
+    });
+  } catch (error) {
+    console.error('Parse existing resume error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Complete profile setup (for first-time users)
 exports.completeProfileSetup = async (req, res) => {
   try {

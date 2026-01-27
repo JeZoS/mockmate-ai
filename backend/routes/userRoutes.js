@@ -8,14 +8,15 @@ const {
   uploadResume,
   deleteResume,
   completeProfileSetup,
-  parseResume
+  parseResume,
+  parseExistingResume
 } = require('../controllers/userController');
 
 // Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 7 * 1024 * 1024, // 7MB limit
   },
   fileFilter: (req, file, cb) => {
     // Accept PDF, DOC, DOCX
@@ -38,6 +39,7 @@ router.put('/profile', protect, updateProfile);
 router.post('/profile/complete', protect, completeProfileSetup);
 router.post('/resume', protect, upload.single('resume'), uploadResume);
 router.post('/resume/parse', protect, upload.single('resume'), parseResume);
+router.post('/resume/parse-existing', protect, parseExistingResume);
 router.delete('/resume', protect, deleteResume);
 
 module.exports = router;
