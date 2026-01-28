@@ -38,19 +38,19 @@ export const SideDrawer = ({ isOpen, onClose }) => {
       
       {/* Drawer */}
       <div className="relative w-80 bg-white shadow-2xl h-full flex flex-col animate-in slide-in-from-right duration-300">
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
-        >
-          <X size={20} />
-        </button>
+        <div className="p-6 pr-14 border-b border-slate-100">
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+          >
+            <X size={20} />
+          </button>
 
-        <div className="p-6 border-b border-slate-100">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 flex-shrink-0">
               <User size={24} />
             </div>
-            <div className="overflow-hidden">
+            <div className="overflow-hidden min-w-0">
               <h3 className="font-semibold text-slate-900 truncate">{user?.name || user?.email.split('@')[0]}</h3>
               <p className="text-xs text-slate-500 truncate">{user?.email || 'user@example.com'}</p>
             </div>
