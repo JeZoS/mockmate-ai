@@ -133,26 +133,38 @@ export const ChatInterface = ({
                 {/* Action Buttons */}
                 <div className="p-4 border-t border-slate-100 space-y-2">
                     {onSaveExit && (
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={onSaveExit}
-                            className="flex items-center justify-center gap-2 w-full"
-                        >
-                            <Save size={16} />
-                            Save & Exit
-                        </Button>
+                        <div className="relative group">
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={onSaveExit}
+                                className="flex items-center justify-center gap-2 w-full"
+                            >
+                                <Save size={16} />
+                                Save & Exit
+                            </Button>
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                Save your progress and continue later
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </div>
+                        </div>
                     )}
                     {onEndSession && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={onEndSession}
-                            className="flex items-center justify-center gap-2 w-full border-red-200 text-red-600 hover:bg-red-50"
-                        >
-                            <StopCircle size={16} />
-                            End Interview
-                        </Button>
+                        <div className="relative group">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={onEndSession}
+                                className="flex items-center justify-center gap-2 w-full border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                                <StopCircle size={16} />
+                                End Interview
+                            </Button>
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                End now and generate performance report
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </div>
+                        </div>
                     )}
                 </div>
             </aside>
@@ -184,7 +196,7 @@ export const ChatInterface = ({
                         </div>
                         <div className="flex items-center gap-2">
                             {onSaveExit && (
-                                <Button variant="secondary" size="sm" onClick={onSaveExit}>
+                                <Button variant="secondary" size="sm" onClick={onSaveExit} title="Save progress and continue later">
                                     <Save size={16} />
                                 </Button>
                             )}
@@ -194,6 +206,7 @@ export const ChatInterface = ({
                                     size="sm"
                                     onClick={onEndSession}
                                     className="border-red-200 text-red-600 hover:bg-red-50"
+                                    title="End now and generate report"
                                 >
                                     <StopCircle size={16} />
                                 </Button>

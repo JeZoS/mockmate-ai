@@ -371,14 +371,6 @@ export const ProfileSetup = () => {
                   <p className="text-slate-500 mt-2">We'll extract your details automatically using AI</p>
                 </div>
 
-                {/* Info about updating details later */}
-                <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
-                  <Info size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-amber-800">
-                    AI extraction may not be 100% accurate. Don't worry — you can review and update all details in the next steps or later from your profile settings.
-                  </p>
-                </div>
-
                 {/* Loading state while fetching profile */}
                 {loadingProfile ? (
                   <div className="flex items-center justify-center gap-3 p-8 border-2 border-dashed border-slate-200 rounded-xl">
@@ -454,6 +446,15 @@ export const ProfileSetup = () => {
                       <div className="flex items-center justify-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                         <Loader2 className="animate-spin text-blue-600" size={20} />
                         <span className="text-blue-700 font-medium">Analyzing resume with AI...</span>
+                      </div>
+                    )}
+
+                    {extractedData && !parsingResume && (
+                      <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                        <Info size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-amber-800">
+                          AI extraction may not be 100% accurate. Don't worry — you can review and update all details in the next steps or later from your profile settings.
+                        </p>
                       </div>
                     )}
 
@@ -764,10 +765,11 @@ export const ProfileSetup = () => {
                 <Button 
                   type="button" 
                   onClick={handleNext}
-                  disabled={parsingResume}
+                  disabled={parsingResume || (!resume && !useExistingResume)}
+                  isLoading={parsingResume}
                 >
-                  {(resume || useExistingResume) ? 'Continue' : 'Continue without resume'}
-                  <ArrowRight size={16} className="ml-2" />
+                  {parsingResume ? 'Analyzing...' : 'Analyze & Continue'}
+                  {!parsingResume && <ArrowRight size={16} className="ml-2" />}
                 </Button>
               </>
             ) : step === 2 ? (

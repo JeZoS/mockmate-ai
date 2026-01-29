@@ -21,7 +21,7 @@ const LandingPage = () => {
             <div className="p-4 bg-white rounded-2xl shadow-lg mb-6">
                 <Code2 size={48} className="text-blue-600" />
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">MockMate AI</h1>
+            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">Zi MockMate</h1>
             <p className="text-lg text-slate-600 max-w-2xl mb-8">
                 Master your interviews with AI-driven mock sessions, resume analysis, and real-time feedback.
             </p>

@@ -230,7 +230,7 @@ export const ResumeUpload = ({ onFileSelect, onBack, isLoading }) => {
             onClick={handleUpload}
             className="w-full shadow-lg shadow-blue-500/20"
           >
-            Analyze & Start Chat
+            {isLoading ? 'Analyzing...' : 'Analyze & Start Interview'}
           </Button>
         </div>
       </div>

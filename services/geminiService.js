@@ -184,18 +184,19 @@ ${resumeInstruction}
 
 Your Responsibilities:
 1. Conduct a professional, realistic interview tailored to the specific role and level.
-2. If a resume is provided, prioritize asking about specific projects, metrics, and experiences mentioned in it.
-3. If the role is technical, ask coding or system design questions. If non-technical (Sales, HR, etc.), ask situational, behavioral, or strategic questions.
-4. Ask ONE question at a time. Wait for the user's response.
-5. YOU MUST ASK EXACTLY ${totalQuestions} QUESTIONS IN TOTAL. Keep track of how many questions you have asked.
-6. After the user answers the ${totalQuestions}th question, honestly evaluate the answer, and then clearly state: "That concludes our interview. Thank you." DO NOT ask any more questions.
-7. Start by introducing yourself and asking the first question.
-8. Keep your responses concise enough to be spoken (approx 2-4 sentences is ideal for conversation).
-9. If the user's answer is correct/good, briefly acknowledge it and move to a harder or related question.
-10. If the user's answer is incorrect or vague, gently dig deeper or clarify.
-11. Maintain a professional yet neutral tone.
+2. YOUR FIRST QUESTION MUST ALWAYS BE: "Tell me about yourself" or "Please introduce yourself". This is mandatory.
+3. After the introduction, if a resume is provided, prioritize asking about specific projects, metrics, and experiences mentioned in it.
+4. If the role is technical, ask coding or system design questions. If non-technical (Sales, HR, etc.), ask situational, behavioral, or strategic questions.
+5. Ask ONE question at a time. Wait for the user's response.
+6. YOU MUST ASK EXACTLY ${totalQuestions} QUESTIONS IN TOTAL (including the "introduce yourself" question). Keep track of how many questions you have asked.
+7. After the user answers the ${totalQuestions}th question, honestly evaluate the answer, and then clearly state: "That concludes our interview. Thank you." DO NOT ask any more questions.
+8. Start by introducing yourself briefly (name and role only) and then ask "Tell me about yourself".
+9. Keep your responses concise enough to be spoken (approx 2-4 sentences is ideal for conversation).
+10. If the user's answer is correct/good, briefly acknowledge it and move to a harder or related question.
+11. If the user's answer is incorrect or vague, gently dig deeper or clarify.
+12. Maintain a professional yet neutral tone.
 
-IMPORTANT: You will receive audio input from the user. Respond with clear, spoken-style text.
+IMPORTANT: You will receive audio input from the user. Respond with clear, spoken-style text. Do NOT output any JSON or code blocks during the interview.
 `;
 
 
@@ -232,6 +233,8 @@ export const generateFeedback = async (history, language = 'English') => {
 
   const prompt = `Analyze the following interview transcript and provide detailed feedback.
   
+  IMPORTANT: Address the candidate DIRECTLY using "you/your" language (e.g., "You demonstrated excellent understanding..." NOT "The candidate demonstrated...").
+  
   Transcript:
   ${conversationText}
   
@@ -239,11 +242,15 @@ export const generateFeedback = async (history, language = 'English') => {
   {
     "overallScore": number (0-100),
     "communicationScore": number (0-100),
-    "technicalScore": number (0-100) (Note: use 'technicalScore' for Domain Knowledge if non-tech),
-    "strengths": string[] (3-5 bullet points),
-    "weaknesses": string[] (3-5 bullet points),
-    "suggestion": string (A paragraph of constructive advice)
-  }`;
+    "technicalScore": number (0-100),
+    "problemSolvingScore": number (0-100),
+    "domainKnowledgeScore": number (0-100),
+    "strengths": string[] (3-5 bullet points, written addressing the candidate directly with "you/your"),
+    "weaknesses": string[] (3-5 bullet points, written addressing the candidate directly with "you/your"),
+    "suggestion": string (A paragraph of constructive advice addressing the candidate directly with "you/your" language)
+  }
+  
+  Note: All text in strengths, weaknesses, and suggestion MUST use second person ("you", "your") to address the candidate directly.`;
 
   try {
     return await api.generateFeedback(prompt, language);
@@ -395,10 +402,38 @@ async function decodeAudioData(data, ctx, sampleRate, numChannels) {
   return buffer;
 }
 
+let currentAudioContext = null;
+let currentAudioSource = null;
+
 export const playAudioBuffer = (buffer) => {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  source.connect(ctx.destination);
-  source.start();
+  stopAudio();
+  
+  currentAudioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+  currentAudioSource = currentAudioContext.createBufferSource();
+  currentAudioSource.buffer = buffer;
+  currentAudioSource.connect(currentAudioContext.destination);
+  currentAudioSource.start();
+  
+  currentAudioSource.onended = () => {
+    currentAudioSource = null;
+  };
+};
+
+export const stopAudio = () => {
+  if (currentAudioSource) {
+    try {
+      currentAudioSource.stop();
+    } catch (e) {
+      // Audio may have already stopped
+    }
+    currentAudioSource = null;
+  }
+  if (currentAudioContext) {
+    try {
+      currentAudioContext.close();
+    } catch (e) {
+      // Context may have already been closed
+    }
+    currentAudioContext = null;
+  }
 };

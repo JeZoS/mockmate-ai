@@ -372,7 +372,7 @@ export const AdminDashboard = () => {
                <div className="bg-blue-600 p-1.5 rounded-lg">
                  <BarChart3 size={20} />
                </div>
-               <span className="font-bold text-xl">MockMate Admin</span>
+               <span className="font-bold text-xl">Zi MockMate Admin</span>
              </div>
              
              {/* Navigation Tabs */}

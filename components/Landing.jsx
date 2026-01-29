@@ -29,7 +29,7 @@ export const Landing = ({ onSelectMode, totalQuestions, onTotalQuestionsChange }
                         </div>
                     </div>
                     <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-slate-900">
-                        MockMate AI
+                        Zi MockMate
                     </h1>
                     <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
                         Master your next technical interview with a personalized AI interviewer. Practice

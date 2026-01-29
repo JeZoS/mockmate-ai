@@ -15,6 +15,7 @@ import {
   sendResumeToChat,
   generateSpeech,
   playAudioBuffer,
+  stopAudio,
   generateFeedback,
   convertHistoryToMessages
 } from '../services/geminiService';
@@ -86,7 +87,6 @@ export const CandidateSession = () => {
     initSession();
   }, [activeInterviewId]);
 
-  // Start coordinator chat when entering SETUP_ROLE_CHAT from dashboard
   useEffect(() => {
     if (appState === AppState.SETUP_ROLE_CHAT && !chatSessionRef.current && !activeInterviewId) {
       startCoordinatorChat();
@@ -123,15 +123,13 @@ export const CandidateSession = () => {
         const botMsgId = generateId();
         setMessages([{ id: botMsgId, role: 'model', text: 'Preparing interview...', timestamp: new Date(), isThinking: true }]);
         
-        const textResponse = await sendMessageStream(chat, "Start the interview now. Introduce yourself briefly and ask the first question.", (chunk) => {
+        const textResponse = await sendMessageStream(chat, "Start the interview now. Introduce yourself briefly and ask 'Tell me about yourself' as your first question.", (chunk) => {
             setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: chunk, isThinking: false } : m));
         });
         
         if (textResponse) {
-             setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, isThinking: true, text: textResponse } : m));
              const audioBuffer = await generateSpeech(textResponse);
              if (audioBuffer) playAudioBuffer(audioBuffer);
-             setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, isThinking: false } : m));
         }
         setIsStreaming(false);
      }
@@ -321,8 +319,14 @@ export const CandidateSession = () => {
     });
     setIsStreaming(false);
     
-    // Generate suggestions based on initial AI response
     generateContextualSuggestions(fullResponse);
+  };
+
+  const filterJsonFromText = (text) => {
+    return text
+      .replace(/```(?:json)?\s*\{[\s\S]*?\}\s*```/g, '')
+      .replace(/\{[\s\S]*?"READY"[\s\S]*?\}/g, '')
+      .trim();
   };
 
   const handleCoordinatorMessage = async (text) => {
@@ -339,7 +343,8 @@ export const CandidateSession = () => {
     let fullResponse = "";
     await sendMessageStream(chatSessionRef.current, text, (chunk) => {
       fullResponse = chunk;
-      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: chunk, isThinking: false } : m));
+      const displayText = filterJsonFromText(chunk);
+      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: displayText || 'Processing...', isThinking: !displayText } : m));
     });
 
     setIsStreaming(false);
@@ -359,6 +364,10 @@ export const CandidateSession = () => {
         const data = JSON.parse(jsonStr);
         
         if (data.READY && data.role) {
+           const cleanedText = filterJsonFromText(fullResponse);
+           const transitionMessage = cleanedText || `Great! Starting your ${data.role} interview now...`;
+           setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: transitionMessage } : m));
+           
            const config = {
              type: 'role_based',
              roleDetails: {
@@ -417,17 +426,15 @@ export const CandidateSession = () => {
     const botMsgId = generateId();
     setMessages([{ id: botMsgId, role: 'model', text: 'Preparing interview...', timestamp: new Date(), isThinking: true }]);
 
-    const textResponse = await sendMessageStream(chat, "Start the interview now. Introduce yourself briefly and ask the first question.", (chunk) => {
+    const textResponse = await sendMessageStream(chat, "Start the interview now. Introduce yourself briefly and ask 'Tell me about yourself' as your first question.", (chunk) => {
        setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: chunk, isThinking: false } : m));
     });
     
     if (textResponse) {
-      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, isThinking: true, text: textResponse } : m)); 
       const audioBuffer = await generateSpeech(textResponse);
       if (audioBuffer) {
         playAudioBuffer(audioBuffer);
       }
-      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, isThinking: false } : m));
     }
     
     setIsStreaming(false);
@@ -460,14 +467,11 @@ export const CandidateSession = () => {
           }).catch(err => console.error('Failed to update interview:', err));
       }
 
-      // Generate speech for the response
       if (fullResponse) {
-         setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, isThinking: true } : m));
          const audioBuffer = await generateSpeech(fullResponse);
          if (audioBuffer) {
            playAudioBuffer(audioBuffer);
          }
-         setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, isThinking: false } : m));
       }
       
       // Check if interview should end
@@ -556,6 +560,8 @@ export const CandidateSession = () => {
   };
 
   const handleEndInterview = async (finalMessages = null) => {
+    stopAudio();
+    
     setAppState(AppState.INTERVIEW_FEEDBACK); 
     setMessages(prev => [...prev, { id: generateId(), role: 'system', text: "Interview ended. Generating detailed performance report...", timestamp: new Date() }]);
     

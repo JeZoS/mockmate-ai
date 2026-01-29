@@ -45,8 +45,8 @@ export const ChatMessage = ({ message, onPlayAudio }) => {
           </div>
           
           <div className="flex items-center gap-2 mt-1 px-1">
-             {/* Audio Replay Button */}
-            {!isUser && !message.isThinking && onPlayAudio && (
+             {/* Audio Replay Button - Hidden for now */}
+            {/* {!isUser && !message.isThinking && onPlayAudio && (
                 <button 
                     onClick={handlePlay}
                     disabled={isPlaying}
@@ -56,7 +56,7 @@ export const ChatMessage = ({ message, onPlayAudio }) => {
                     {isPlaying ? <Loader2 size={14} className="animate-spin" /> : <Volume2 size={14} />}
                     {isPlaying ? 'Playing...' : 'Re-hear'}
                 </button>
-            )}
+            )} */}
             
             {/* Timestamp */}
             <span className="text-xs text-slate-400">

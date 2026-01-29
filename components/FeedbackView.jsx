@@ -21,7 +21,7 @@ export const FeedbackView = ({ data, onHome }) => {
 
   const handleDownload = () => {
     const reportContent = `
-MOCKMATE AI - INTERVIEW REPORT
+ZI MOCKMATE - INTERVIEW REPORT
 ------------------------------
 
 OVERALL SCORE: ${data.overallScore}/100
@@ -105,7 +105,13 @@ ${data.suggestion}
               <h3 className="text-lg font-medium text-slate-900">Skill Breakdown</h3>
             </div>
             <ScoreBar label="Communication & Clarity" score={data.communicationScore} colorClass="bg-emerald-500" />
-            <ScoreBar label="Domain Knowledge / Technical" score={data.technicalScore} colorClass="bg-indigo-500" />
+            <ScoreBar label="Technical Skills" score={data.technicalScore} colorClass="bg-indigo-500" />
+            {data.problemSolvingScore && (
+              <ScoreBar label="Problem Solving" score={data.problemSolvingScore} colorClass="bg-purple-500" />
+            )}
+            {data.domainKnowledgeScore && (
+              <ScoreBar label="Domain Knowledge" score={data.domainKnowledgeScore} colorClass="bg-amber-500" />
+            )}
           </div>
         </div>
 

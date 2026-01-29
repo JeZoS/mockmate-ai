@@ -18,7 +18,7 @@ const DashboardHeader = ({ onMenuClick }) => {
               <Code2 size={24} />
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-xl font-bold text-slate-900">MockMate</h1>
+              <h1 className="text-xl font-bold text-slate-900">Zi MockMate</h1>
               <p className="text-xs text-slate-500 -mt-0.5">AI Interview Coach</p>
             </div>
           </div>
