@@ -1,14 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../services/api';
+import { formatApiCost, CURRENCIES, fetchExchangeRates } from '../services/utils';
 import { 
   Users, FileText, CheckCircle, BarChart3, LogOut, Loader2, 
   Play, Pause, Volume2, X, ChevronLeft, ChevronRight, Search,
-  Clock, Mic, MessageSquare, Award, Calendar, Filter
+  Clock, Mic, MessageSquare, Award, Calendar, Filter, DollarSign, Globe
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 
-// Audio Player Component
 const AudioPlayer = ({ url, label, duration }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -64,8 +64,7 @@ const AudioPlayer = ({ url, label, duration }) => {
   );
 };
 
-// Interview Details Modal
-const InterviewDetailsModal = ({ interview, onClose }) => {
+const InterviewDetailsModal = ({ interview, onClose, currency }) => {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -215,6 +214,33 @@ const InterviewDetailsModal = ({ interview, onClose }) => {
                   </div>
                 </div>
               )}
+
+              {details?.interview?.tokenUsage && details?.interview?.tokenUsage?.totalTokens > 0 && (
+                <div className="bg-gradient-to-r from-slate-700 to-slate-800 rounded-xl p-4 text-white">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <BarChart3 size={16} />
+                    Token Usage & Cost
+                  </h4>
+                  <div className="grid grid-cols-4 gap-4 text-center">
+                    <div>
+                      <p className="text-slate-400 text-xs">Total Tokens</p>
+                      <p className="font-bold">{details?.interview?.tokenUsage?.totalTokens?.toLocaleString() || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 text-xs">Input</p>
+                      <p className="font-bold">{details?.interview?.tokenUsage?.totalInputTokens?.toLocaleString() || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 text-xs">Output</p>
+                      <p className="font-bold">{details?.interview?.tokenUsage?.totalOutputTokens?.toLocaleString() || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 text-xs">Est. Cost</p>
+                      <p className="font-bold text-emerald-400">{formatApiCost(details?.interview?.tokenUsage?.estimatedCost || 0, currency)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -224,7 +250,6 @@ const InterviewDetailsModal = ({ interview, onClose }) => {
                 <p className="text-center text-slate-400 py-8">No responses recorded</p>
               ) : (
                 details?.qaHistory?.map((qa, index) => {
-                  // Find matching audio recording for this question (index + 1 because questionIndex is 1-based)
                   const audioRecording = details?.audioRecordings?.find(
                     r => r.questionIndex === index + 1
                   );
@@ -304,8 +329,13 @@ export const AdminDashboard = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [view, setView] = useState('dashboard'); // 'dashboard' or 'interviews'
+  const [currency, setCurrency] = useState('USD'); // Currency for cost display
   const { setUser, resetSession } = useAppStore();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchExchangeRates();
+  }, []);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -361,6 +391,7 @@ export const AdminDashboard = () => {
 
   const completedCount = stats?.statusCounts.find(s => s._id === 'COMPLETED')?.count || 0;
   const inProgressCount = stats?.statusCounts.find(s => s._id === 'IN_PROGRESS')?.count || 0;
+  const tokenStats = stats?.tokenStats || { totalTokens: 0, totalCost: 0 };
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -400,13 +431,30 @@ export const AdminDashboard = () => {
              </div>
            </div>
            
-           <button 
-             onClick={handleLogout} 
-             className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all shadow-sm"
-           >
-             <LogOut size={18} /> 
-             <span className="hidden md:inline">Logout</span>
-           </button>
+           <div className="flex items-center gap-3">
+             <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2">
+               <Globe size={16} className="text-slate-400" />
+               <select
+                 value={currency}
+                 onChange={(e) => setCurrency(e.target.value)}
+                 className="bg-transparent text-sm font-medium text-slate-300 outline-none cursor-pointer"
+               >
+                 {Object.entries(CURRENCIES).map(([code, { name, symbol }]) => (
+                   <option key={code} value={code} className="bg-slate-800 text-white">
+                     {symbol} {code}
+                   </option>
+                 ))}
+               </select>
+             </div>
+             
+             <button 
+               onClick={handleLogout} 
+               className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all shadow-sm"
+             >
+               <LogOut size={18} /> 
+               <span className="hidden md:inline">Logout</span>
+             </button>
+           </div>
         </div>
       </div>
 
@@ -414,8 +462,7 @@ export const AdminDashboard = () => {
         
         {view === 'dashboard' ? (
           <>
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                   <div className="flex items-center justify-between mb-4">
                      <h3 className="text-slate-500 font-medium">Total Users</h3>
@@ -449,7 +496,31 @@ export const AdminDashboard = () => {
                </div>
             </div>
 
-            {/* Recent Activity */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <BarChart3 size={20} />
+                AI Token Usage & Cost Analytics
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div>
+                  <p className="text-indigo-200 text-sm">Total Tokens</p>
+                  <p className="text-2xl font-bold">{(tokenStats.totalTokens || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-indigo-200 text-sm">Input Tokens</p>
+                  <p className="text-2xl font-bold">{(tokenStats.totalInputTokens || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-indigo-200 text-sm">Output Tokens</p>
+                  <p className="text-2xl font-bold">{(tokenStats.totalOutputTokens || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-indigo-200 text-sm">Estimated Cost</p>
+                  <p className="text-2xl font-bold">{formatApiCost(tokenStats.totalCost || 0, currency)}</p>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                  <h2 className="text-lg font-bold text-slate-900">Recent Interviews</h2>
@@ -469,6 +540,7 @@ export const AdminDashboard = () => {
                        <th className="px-6 py-3">Status</th>
                        <th className="px-6 py-3">Date</th>
                        <th className="px-6 py-3">Score</th>
+                       <th className="px-6 py-3">Cost</th>
                        <th className="px-6 py-3">Audio</th>
                        <th className="px-6 py-3"></th>
                      </tr>
@@ -493,6 +565,15 @@ export const AdminDashboard = () => {
                            {interview.feedback?.overallScore ? `${interview.feedback.overallScore}%` : '-'}
                          </td>
                          <td className="px-6 py-3">
+                           {interview.tokenUsage?.estimatedCost > 0 ? (
+                             <span className="flex items-center gap-1 text-amber-600 font-medium">
+                               {formatApiCost(interview.tokenUsage.estimatedCost, currency)}
+                             </span>
+                           ) : (
+                             <span className="text-slate-300">-</span>
+                           )}
+                         </td>
+                         <td className="px-6 py-3">
                            {interview.audioCount > 0 ? (
                              <span className="flex items-center gap-1 text-blue-600">
                                <Mic size={14} />
@@ -514,7 +595,7 @@ export const AdminDashboard = () => {
                      ))}
                      {stats?.recentInterviews.length === 0 && (
                        <tr>
-                         <td colSpan={7} className="px-6 py-8 text-center text-slate-400">
+                         <td colSpan={8} className="px-6 py-8 text-center text-slate-400">
                            No recent activity found.
                          </td>
                        </tr>
@@ -525,14 +606,11 @@ export const AdminDashboard = () => {
             </div>
           </>
         ) : (
-          /* All Interviews View */
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Filters */}
             <div className="p-6 border-b border-slate-100 space-y-4">
               <h2 className="text-lg font-bold text-slate-900">All Interviews</h2>
               
               <div className="flex flex-col md:flex-row gap-4">
-                {/* Search */}
                 <form onSubmit={handleSearch} className="flex-1">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -546,7 +624,6 @@ export const AdminDashboard = () => {
                   </div>
                 </form>
                 
-                {/* Status Filter */}
                 <div className="flex items-center gap-2">
                   <Filter size={18} className="text-slate-400" />
                   <select
@@ -563,7 +640,6 @@ export const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-900 font-medium">
@@ -574,6 +650,7 @@ export const AdminDashboard = () => {
                     <th className="px-6 py-3">Date</th>
                     <th className="px-6 py-3">Questions</th>
                     <th className="px-6 py-3">Audio</th>
+                    <th className="px-6 py-3">Cost</th>
                     <th className="px-6 py-3">Score</th>
                     <th className="px-6 py-3"></th>
                   </tr>
@@ -617,6 +694,15 @@ export const AdminDashboard = () => {
                           <span className="text-slate-300">No recordings</span>
                         )}
                       </td>
+                      <td className="px-6 py-3">
+                        {interview.tokenUsage?.estimatedCost > 0 ? (
+                          <span className="flex items-center gap-1 text-amber-600 font-medium">
+                            {formatApiCost(interview.tokenUsage.estimatedCost, currency)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </td>
                       <td className="px-6 py-3 font-medium">
                         {interview.feedback?.overallScore ? (
                           <span className={`${
@@ -640,7 +726,7 @@ export const AdminDashboard = () => {
                   ))}
                   {interviews.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
+                      <td colSpan={9} className="px-6 py-12 text-center text-slate-400">
                         No interviews found.
                       </td>
                     </tr>
@@ -649,7 +735,6 @@ export const AdminDashboard = () => {
               </table>
             </div>
 
-            {/* Pagination */}
             {pagination && pagination.pages > 1 && (
               <div className="p-4 border-t border-slate-100 flex items-center justify-between">
                 <p className="text-sm text-slate-500">
@@ -680,11 +765,11 @@ export const AdminDashboard = () => {
         )}
       </div>
 
-      {/* Interview Details Modal */}
       {selectedInterview && (
         <InterviewDetailsModal 
           interview={selectedInterview} 
-          onClose={() => setSelectedInterview(null)} 
+          onClose={() => setSelectedInterview(null)}
+          currency={currency}
         />
       )}
     </div>

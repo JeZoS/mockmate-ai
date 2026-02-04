@@ -1,6 +1,18 @@
 import { api } from "./api";
 
-// Convert Backend History to Frontend Messages
+const extractDisplayText = (text) => {
+  if (!text) return "";
+  
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed.response) return parsed.response;
+    if (parsed.message) return parsed.message;
+    return text;
+  } catch (e) {
+    return text;
+  }
+};
+
 export const convertHistoryToMessages = (history) => {
   const messages = [];
   history.forEach((turn, index) => {
@@ -21,6 +33,8 @@ export const convertHistoryToMessages = (history) => {
                   }
               }
           }
+      } else if (turn.role === 'model') {
+          textToShow = extractDisplayText(textToShow);
       }
 
       if(textToShow) {
@@ -38,11 +52,11 @@ export const convertHistoryToMessages = (history) => {
   return messages;
 };
 
-// --- Backend Chat Session Abstraction ---
 export class BackendChatSession {
   constructor(model, config, initialHistory = []) {
     this.modelName = model;
-    this.systemInstruction = config.systemInstruction || '';
+    this.instructionType = config.instructionType || null; // 'coordinator', 'resumeCoordinator', 'interviewer', 'setupVerifier'
+    this.interviewContext = config.interviewContext || null; // { role, focusArea, level, jd, hasResume, totalQuestions }
     this.maxOutputTokens = config.maxOutputTokens || 1024;
     this.language = config.language || 'English';
     this.history = initialHistory;
@@ -50,50 +64,21 @@ export class BackendChatSession {
   }
 }
 
-// --- Coordinator (Manual Role) ---
 export const createCoordinatorChat = (language = 'English') => {
   return new BackendChatSession('mockmate-coordinator', {
     language,
-    systemInstruction: `You are a friendly and efficient Interview Coordinator AI. 
-Your goal is to gather three specific pieces of information from the user to set up a mock interview.
-This interview can be for ANY role (Tech, Sales, Marketing, HR, etc.).
-
-1. The Target Role (e.g., Frontend Dev, Sales Representative, Project Manager).
-2. The Focus Area, Tech Stack, or Industry (e.g., React/Node, B2B SaaS, Agile methodologies).
-3. The Experience Level (e.g., Junior, Senior, Staff, VP).
-
-Instructions:
-- Ask ONE question at a time. Do not overwhelm the user.
-- Start by asking what role they are practicing for.- If the user provides all three details in a single message (role, focus/stack, and level), immediately output the final JSON block (as shown below) and stop — do NOT ask follow-up questions.- Once you have all three pieces of information clearly, you MUST output a final JSON block strictly in this format and stop:
-  \`\`\`json
-  { "READY": true, "role": "...", "focusArea": "...", "level": "..." }
-  \`\`\`
-- Until you have all info, just chat normally and ask the next relevant question.
-`
+    instructionType: 'coordinator' // Backend handles the actual system instruction
   });
 };
 
-// --- Coordinator (Resume Based) ---
 export const createResumeCoordinatorChat = (language = 'English') => {
   return new BackendChatSession('mockmate-coordinator', {
     maxOutputTokens: 1024,
     language,
-    systemInstruction: `You are an expert Career Coach and Interview Coordinator.
-The user has already had their resume analyzed. You have been provided with a structured analysis of their resume.
-Your job now is to help them select ONE specific interview role and focus area from the suggested options.
-
-Instructions:
-- Keep responses BRIEF and CONVERSATIONAL (under 100 words).
-- If the user picks a role, confirm it and ask for any specific focus or level adjustments.
-- Once they confirm a specific Role, Focus Area, and Level, output:
-\`\`\`json
-{ "READY": true, "role": "...", "focusArea": "...", "level": "..." }
-\`\`\`
-`
+    instructionType: 'resumeCoordinator' // Backend handles the actual system instruction
   });
 };
 
-// Format the structured resume analysis into a conversational message
 export const formatResumeAnalysis = (analysis) => {
   const { greeting, strengthsSummary, suggestedRoles, suggestion } = analysis;
   
@@ -109,25 +94,19 @@ export const formatResumeAnalysis = (analysis) => {
   return message;
 };
 
-// Analyze resume using structured function calling
 export const analyzeResumeStructured = async (fileBase64, mimeType, language = 'English') => {
   const analysis = await api.analyzeResume(fileBase64, mimeType, language);
   return analysis;
 };
 
-// Legacy function - now uses structured analysis
 export const sendResumeToChat = async (chat, fileBase64, mimeType, language = 'English') => {
   try {
-    // Use the new structured analysis endpoint
     const analysis = await analyzeResumeStructured(fileBase64, mimeType, language);
     
-    // Format the analysis into a nice conversational message
     const formattedMessage = formatResumeAnalysis(analysis);
     
-    // Store the analysis in the chat session for later use
     chat.resumeAnalysis = analysis;
     
-    // Add to chat history so the coordinator knows the context
     chat.history.push({
       role: 'user',
       parts: [
@@ -144,7 +123,6 @@ export const sendResumeToChat = async (chat, fileBase64, mimeType, language = 'E
     return { text: formattedMessage, analysis };
   } catch (error) {
     console.error("Error in structured resume analysis:", error);
-    // Fallback to old streaming method if structured analysis fails
     let fullText = "";
     
     const messagePart = {
@@ -162,43 +140,15 @@ export const sendResumeToChat = async (chat, fileBase64, mimeType, language = 'E
   }
 };
 
-// --- Interviewer ---
 export const createInterviewerChat = (context, existingHistory = [], interviewId = null) => {
-  
-  let systemContext = "";
-  if (context.jd) {
-    systemContext = `The user has provided the following Job Description (JD):\n"""\n${context.jd}\n"""\nBase your interview questions and evaluation criteria strictly on this JD.`;
-  } else {
-    systemContext = `The user is practicing for a ${context.role} position.\nFocus Area/Skills: ${context.focusArea}\nExperience Level: ${context.level}`;
-  }
-  
-  const resumeInstruction = context.resumeData 
-    ? "A resume has been provided. You MUST ask at least 2 specific questions about the projects, experience, and skills listed in the user's resume. Verify their details and ask for deep dives into their past work." 
-    : "No resume provided. Ask standard questions for the role.";
-    
-  const totalQuestions = context.totalQuestions || 10;
-
-  const systemInstruction = `You are an expert Professional Interviewer conducting a mock interview.
-${systemContext}
-${resumeInstruction}
-
-Your Responsibilities:
-1. Conduct a professional, realistic interview tailored to the specific role and level.
-2. YOUR FIRST QUESTION MUST ALWAYS BE: "Tell me about yourself" or "Please introduce yourself". This is mandatory.
-3. After the introduction, if a resume is provided, prioritize asking about specific projects, metrics, and experiences mentioned in it.
-4. If the role is technical, ask coding or system design questions. If non-technical (Sales, HR, etc.), ask situational, behavioral, or strategic questions.
-5. Ask ONE question at a time. Wait for the user's response.
-6. YOU MUST ASK EXACTLY ${totalQuestions} QUESTIONS IN TOTAL (including the "introduce yourself" question). Keep track of how many questions you have asked.
-7. After the user answers the ${totalQuestions}th question, honestly evaluate the answer, and then clearly state: "That concludes our interview. Thank you." DO NOT ask any more questions.
-8. Start by introducing yourself briefly (name and role only) and then ask "Tell me about yourself".
-9. Keep your responses concise enough to be spoken (approx 2-4 sentences is ideal for conversation).
-10. If the user's answer is correct/good, briefly acknowledge it and move to a harder or related question.
-11. If the user's answer is incorrect or vague, gently dig deeper or clarify.
-12. Maintain a professional yet neutral tone.
-
-IMPORTANT: You will receive audio input from the user. Respond with clear, spoken-style text. Do NOT output any JSON or code blocks during the interview.
-`;
-
+  const interviewContext = {
+    role: context.role || null,
+    focusArea: context.focusArea || null,
+    level: context.level || null,
+    jd: context.jd || null,
+    hasResume: !!context.resumeData,
+    totalQuestions: context.totalQuestions || 10
+  };
 
   let history = existingHistory.length > 0 ? existingHistory : [];
   
@@ -219,41 +169,20 @@ IMPORTANT: You will receive audio input from the user. Respond with clear, spoke
   }
 
   return new BackendChatSession('mockmate-interviewer', { 
-    systemInstruction, 
+    instructionType: 'interviewer',
+    interviewContext, // Pass context params to backend
     language: context.language,
     interviewId: interviewId 
   }, history);
 };
 
-// --- Feedback Generation ---
-export const generateFeedback = async (history, language = 'English') => {
-  const conversationText = history
+export const generateFeedback = async (history, language = 'English', interviewId = null) => {
+  const transcript = history
     .map(m => `${m.role.toUpperCase()}: ${m.text}`)
     .join('\n');
 
-  const prompt = `Analyze the following interview transcript and provide detailed feedback.
-  
-  IMPORTANT: Address the candidate DIRECTLY using "you/your" language (e.g., "You demonstrated excellent understanding..." NOT "The candidate demonstrated...").
-  
-  Transcript:
-  ${conversationText}
-  
-  Provide output in the following JSON schema:
-  {
-    "overallScore": number (0-100),
-    "communicationScore": number (0-100),
-    "technicalScore": number (0-100),
-    "problemSolvingScore": number (0-100),
-    "domainKnowledgeScore": number (0-100),
-    "strengths": string[] (3-5 bullet points, written addressing the candidate directly with "you/your"),
-    "weaknesses": string[] (3-5 bullet points, written addressing the candidate directly with "you/your"),
-    "suggestion": string (A paragraph of constructive advice addressing the candidate directly with "you/your" language)
-  }
-  
-  Note: All text in strengths, weaknesses, and suggestion MUST use second person ("you", "your") to address the candidate directly.`;
-
   try {
-    return await api.generateFeedback(prompt, language);
+    return await api.generateFeedback(transcript, language, interviewId);
   } catch (error) {
     console.error("Error generating feedback:", error);
     return {
@@ -267,7 +196,6 @@ export const generateFeedback = async (history, language = 'English') => {
   }
 };
 
-// --- Text Messaging ---
 export const sendMessageStream = async (chat, messageInput, onChunk) => {
   let fullText = "";
   
@@ -283,27 +211,55 @@ export const sendMessageStream = async (chat, messageInput, onChunk) => {
   }
 
   try {
+    const useStructuredOutput = chatSession.modelName === 'mockmate-coordinator' || 
+                                 chatSession.modelName === 'mockmate-interviewer';
+    
     const config = { 
-        systemInstruction: chatSession.systemInstruction, 
+        instructionType: chatSession.instructionType,
+        interviewContext: chatSession.interviewContext,
         modelName: chatSession.modelName,
         maxOutputTokens: chatSession.maxOutputTokens,
         language: chatSession.language,
-        interviewId: chatSession.interviewId // Pass ID here
+        interviewId: chatSession.interviewId,
+        useStructuredOutput
     };
+    
+    let previousLength = 0;
     
     await api.chatStream(
         chatSession.history, 
         messageInput, 
         config,
         (chunk) => {
-            fullText += chunk;
-            onChunk(fullText);
+            if (useStructuredOutput && fullText.length > 0 && chunk.startsWith(fullText)) {
+                const newPart = chunk.slice(fullText.length);
+                fullText = chunk; 
+                if (newPart) onChunk(newPart);
+            } else if (useStructuredOutput && chunk.length > fullText.length && fullText.length > 0 && chunk.includes(fullText.slice(0, Math.min(50, fullText.length)))) {
+                fullText = chunk;
+                onChunk(chunk);
+            } else {
+                fullText += chunk;
+                onChunk(chunk);
+            }
         }
     );
 
-    // Update local history for UI consistency
     chatSession.history.push(userContent);
-    chatSession.history.push({ role: 'model', parts: [{ text: fullText }] });
+    
+    if (useStructuredOutput) {
+      try {
+        const parsed = JSON.parse(fullText);
+        const displayText = parsed.message || parsed.response || fullText;
+        chatSession.history.push({ role: 'model', parts: [{ text: displayText }] });
+        chatSession.lastStructuredResponse = parsed;
+        return parsed; 
+      } catch (e) {
+        chatSession.history.push({ role: 'model', parts: [{ text: fullText }] });
+      }
+    } else {
+      chatSession.history.push({ role: 'model', parts: [{ text: fullText }] });
+    }
 
   } catch (error) {
     console.error("Error in chat stream:", error);
@@ -330,24 +286,26 @@ export const sendAudioMessage = async (chat, audioBase64, mimeType) => {
   };
 
   let fullText = "";
-  await sendMessageStream(chat, message, (chunk) => {
+  const structuredResponse = await sendMessageStream(chat, message, (chunk) => {
       fullText += chunk;
   });
-  return fullText;
+  
+  if (structuredResponse && typeof structuredResponse === 'object') {
+    return structuredResponse;
+  }
+  
+  try {
+    return JSON.parse(fullText);
+  } catch (e) {
+    return fullText;
+  }
 };
 
-// --- AI Setup Verifier ---
-// Given a single user message, ask the coordinator model to parse it and return a
-// compact JSON object: { READY: bool, role: string|null, focusArea: string|null, level: string|null }
 export const verifySetupWithAI = async (inputText, language = 'English') => {
   let fullResponse = "";
-  const systemInstruction = `You are a strict JSON extractor.
-Given the user's single message intended to set up an interview (role, focus/stack, experience level),
-extract those three fields and output ONLY a JSON object. Use these keys exactly: READY (true if enough info to start), role, focusArea, level.
-If you are uncertain about any field, set it to null and set READY to false. Do not include any explanation text.`;
 
   await api.chatStream([], inputText, {
-    systemInstruction,
+    instructionType: 'setupVerifier',
     modelName: 'mockmate-coordinator',
     language,
     maxOutputTokens: 256
@@ -356,7 +314,6 @@ If you are uncertain about any field, set it to null and set READY to false. Do 
   return fullResponse;
 };
 
-// --- TTS ---
 export const generateSpeech = async (text) => {
   try {
     const data = await api.generateSpeech(text);
@@ -377,7 +334,6 @@ export const generateSpeech = async (text) => {
   }
 };
 
-// --- Audio Utils ---
 function decode(base64) {
   const binaryString = atob(base64);
   const len = binaryString.length;
@@ -424,7 +380,6 @@ export const stopAudio = () => {
     try {
       currentAudioSource.stop();
     } catch (e) {
-      // Audio may have already stopped
     }
     currentAudioSource = null;
   }
@@ -432,7 +387,6 @@ export const stopAudio = () => {
     try {
       currentAudioContext.close();
     } catch (e) {
-      // Context may have already been closed
     }
     currentAudioContext = null;
   }

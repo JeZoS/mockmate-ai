@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// const API_URL = 'http://localhost:5001';
-const API_URL = '';
+const API_URL = 'http://localhost:5001';
+// const API_URL = '';
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
@@ -197,18 +197,24 @@ export const api = {
     if (!res.ok || !res.body) throw new Error('Chat API Error');
 
     const reader = res.body.getReader();
-    const decoder = new TextDecoder();
+    const decoder = new TextDecoder('utf-8', { fatal: false });
+    let buffer = '';
 
     while (true) {
       const { value, done } = await reader.read();
-      if (done) break;
+      if (done) {
+        if (buffer) onChunk(buffer);
+        break;
+      }
       const text = decoder.decode(value, { stream: true });
-      onChunk(text);
+      if (text) {
+        onChunk(text);
+      }
     }
   },
 
-  generateFeedback: async (prompt, language) => {
-    const { data } = await axiosInstance.post('/api/ai/feedback', { prompt, language });
+  generateFeedback: async (transcript, language, interviewId = null) => {
+    const { data } = await axiosInstance.post('/api/ai/feedback', { transcript, language, interviewId });
     return data;
   },
 

@@ -3,6 +3,7 @@ import { Button } from './ui/Button';
 import { api } from '../services/api';
 import { Code2, Mail, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAppStore } from '../store/useAppStore';
 
 export const Auth = ({ onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -15,13 +16,91 @@ export const Auth = ({ onLoginSuccess }) => {
   const [otp, setOtp] = useState('');
   const [otpSending, setOtpSending] = useState(false);
   const [pendingUserData, setPendingUserData] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const navigate = useNavigate();
+  const user = useAppStore(s => s.user);
+
+  useEffect(() => {
+    let isMounted = true;
+    
+    const checkAndRedirect = async () => {
+      if (user) {
+        redirectAuthenticatedUser(user);
+        return;
+      }
+      
+      const token = localStorage.getItem('token');
+      
+      if (token) {
+        try {
+          const userData = await api.getMe();
+          if (isMounted) {
+            if (onLoginSuccess) onLoginSuccess(userData);
+            redirectAuthenticatedUser(userData);
+          }
+          return;
+        } catch (err) {
+          localStorage.removeItem('token');
+        }
+      }
+      
+      if (isMounted) {
+        setCheckingAuth(false);
+      }
+    };
+
+    checkAndRedirect();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (checkingAuth) return; 
+    
+    const initializeGoogleOneTap = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: "29688754422-1cm4i8vdffevoav9pfuo624gbk9p43oq.apps.googleusercontent.com",
+          callback: handleGoogleResponse
+        });
+        const parentDiv = document.getElementById("googleSignInDiv");
+        if (parentDiv) {
+          window.google.accounts.id.renderButton(
+            parentDiv,
+            { theme: "outline", size: "large", width: parentDiv?.offsetWidth || 350 }
+          );
+        }
+      }
+    };
+
+    if (!window.google) {
+      const script = document.createElement('script');
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = initializeGoogleOneTap;
+      document.body.appendChild(script);
+    } else {
+      initializeGoogleOneTap();
+    }
+  }, [checkingAuth]);
+
+  const redirectAuthenticatedUser = (userData) => {
+    if (userData.isAdmin) {
+      navigate('/mockmate/admin', { replace: true });
+    } else if (!userData.profileCompleted) {
+      navigate('/mockmate/candidate/profile-setup', { replace: true });
+    } else {
+      navigate('/mockmate/candidate/dashboard', { replace: true });
+    }
+  };
 
   const navigateAfterAuth = (data, isNewRegistration = false) => {
     if (data.isAdmin) {
       navigate('/mockmate/admin');
     } else if (isNewRegistration || !data.profileCompleted) {
-      // New users or users who haven't completed profile go to profile setup
       navigate('/mockmate/candidate/profile-setup');
     } else {
       navigate('/mockmate/candidate/dashboard');
@@ -43,32 +122,16 @@ export const Auth = ({ onLoginSuccess }) => {
     }
   };
 
-  useEffect(() => {
-    const initializeGoogleOneTap = () => {
-      if (window.google) {
-        window.google.accounts.id.initialize({
-          client_id: "29688754422-1cm4i8vdffevoav9pfuo624gbk9p43oq.apps.googleusercontent.com",
-          callback: handleGoogleResponse
-        });
-        const parentDiv = document.getElementById("googleSignInDiv");
-        window.google.accounts.id.renderButton(
-          parentDiv,
-          { theme: "outline", size: "large", width: parentDiv?.offsetWidth || 350 }
-        );
-      }
-    };
-
-    if (!window.google) {
-      const script = document.createElement('script');
-      script.src = "https://accounts.google.com/gsi/client";
-      script.async = true;
-      script.defer = true;
-      script.onload = initializeGoogleOneTap;
-      document.body.appendChild(script);
-    } else {
-      initializeGoogleOneTap();
-    }
-  }, []);
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <p className="text-slate-500">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -83,7 +146,6 @@ export const Auth = ({ onLoginSuccess }) => {
         navigateAfterAuth(data, false);
       } else {
         data = await api.register(name, email, password);
-        // Show OTP verification screen
         setPendingUserData(data);
         setShowOtpScreen(true);
       }
@@ -115,7 +177,7 @@ export const Auth = ({ onLoginSuccess }) => {
     setError('');
     try {
       await api.sendOtp(email);
-      setError(''); // Clear any error
+      setError(''); 
       alert('OTP sent successfully!');
     } catch (err) {
       setError(err.message || 'Failed to send OTP. Please try again.');
@@ -130,7 +192,6 @@ export const Auth = ({ onLoginSuccess }) => {
     setPendingUserData(null);
   };
 
-  // OTP Verification Screen
   if (showOtpScreen) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">

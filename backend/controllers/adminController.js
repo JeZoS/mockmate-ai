@@ -7,10 +7,22 @@ exports.getDashboardStats = async (req, res) => {
     const totalUsers = await User.countDocuments();
     const totalInterviews = await Interview.countDocuments({ isDeleted: false });
     
-    // Aggregate status counts
     const statusCounts = await Interview.aggregate([
       { $match: { isDeleted: false } },
       { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]);
+
+    const tokenStats = await Interview.aggregate([
+      { $match: { isDeleted: false } },
+      { 
+        $group: { 
+          _id: null, 
+          totalInputTokens: { $sum: '$tokenUsage.totalInputTokens' },
+          totalOutputTokens: { $sum: '$tokenUsage.totalOutputTokens' },
+          totalTokens: { $sum: '$tokenUsage.totalTokens' },
+          totalCost: { $sum: '$tokenUsage.estimatedCost' }
+        } 
+      }
     ]);
 
     // Get recent interviews with audio recording counts
@@ -29,6 +41,7 @@ exports.getDashboardStats = async (req, res) => {
       totalUsers,
       totalInterviews,
       statusCounts,
+      tokenStats: tokenStats[0] || { totalInputTokens: 0, totalOutputTokens: 0, totalTokens: 0, totalCost: 0 },
       recentInterviews: interviewsWithAudioCount
     });
   } catch (error) {
@@ -45,7 +58,6 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
-// Get detailed interview with audio recordings for admin
 exports.getInterviewDetails = async (req, res) => {
   try {
     const { interviewId } = req.params;
@@ -111,7 +123,8 @@ exports.getInterviewDetails = async (req, res) => {
         date: interview.date,
         updatedAt: interview.updatedAt,
         durationSeconds: interview.durationSeconds,
-        feedback: interview.feedback
+        feedback: interview.feedback,
+        tokenUsage: interview.tokenUsage
       },
       qaHistory,
       audioRecordings

@@ -78,6 +78,20 @@ const InterviewSchema = new mongoose.Schema({
     strengths: [String],
     weaknesses: [String],
     suggestion: String
+  },
+  tokenUsage: {
+    totalInputTokens: { type: Number, default: 0 },
+    totalOutputTokens: { type: Number, default: 0 },
+    totalTokens: { type: Number, default: 0 },
+    estimatedCost: { type: Number, default: 0 }, // in USD
+    breakdown: [{
+      timestamp: { type: Date, default: Date.now },
+      operation: String, // 'chat', 'feedback', 'resume_analysis', 'tts'
+      model: String,
+      inputTokens: Number,
+      outputTokens: Number,
+      cost: Number
+    }]
   }
 });
 

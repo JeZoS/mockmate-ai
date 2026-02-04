@@ -123,8 +123,10 @@ export const CandidateSession = () => {
         const botMsgId = generateId();
         setMessages([{ id: botMsgId, role: 'model', text: 'Preparing interview...', timestamp: new Date(), isThinking: true }]);
         
+        let fullText = "";
         const textResponse = await sendMessageStream(chat, "Start the interview now. Introduce yourself briefly and ask 'Tell me about yourself' as your first question.", (chunk) => {
-            setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: chunk, isThinking: false } : m));
+            fullText += chunk;
+            setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: fullText, isThinking: false } : m));
         });
         
         if (textResponse) {
@@ -180,21 +182,24 @@ export const CandidateSession = () => {
       const chat = createResumeCoordinatorChat(language);
       chatSessionRef.current = chat;
       
-      setAppState(AppState.SETUP_RESUME_CHAT);
-      setMessages([]);
-
-      const systemMsgId = generateId();
-      setMessages([{ id: systemMsgId, role: 'model', text: 'Analyzing resume...', timestamp: new Date(), isThinking: true }]);
-      
       const result = await sendResumeToChat(chat, base64, file.type, language);
       
-      // Handle the new structured response format
       const responseText = result.text || result;
-      setMessages(prev => prev.map(m => m.id === systemMsgId ? { ...m, text: responseText, isThinking: false } : m));
       
-      // Store the analysis if available and generate suggestions
       if (result.analysis) {
         chatSessionRef.current.resumeAnalysis = result.analysis;
+      }
+      
+      setAppState(AppState.SETUP_RESUME_CHAT);
+      setMessages([{ 
+        id: generateId(), 
+        role: 'model', 
+        text: responseText, 
+        timestamp: new Date(), 
+        isThinking: false 
+      }]);
+      
+      if (result.analysis) {
         generateContextualSuggestions(responseText, result.analysis);
       }
       
@@ -208,12 +213,10 @@ export const CandidateSession = () => {
     }
   };
 
-  // Analyze AI message and generate contextual suggestions
   const generateContextualSuggestions = (aiMessage, analysis = null) => {
     const lowerMessage = aiMessage.toLowerCase();
     const newSuggestions = [];
 
-    // Check if AI is asking about roles (after resume analysis)
     if (analysis?.suggestedRoles && (
       lowerMessage.includes('which one') || 
       lowerMessage.includes('which role') ||
@@ -228,7 +231,6 @@ export const CandidateSession = () => {
         });
       });
     }
-    // Check if AI is asking about experience level
     else if (
       lowerMessage.includes('experience level') || 
       lowerMessage.includes('seniority') ||
@@ -242,7 +244,6 @@ export const CandidateSession = () => {
         { label: 'Senior (5+ years)', value: 'I have 5+ years of experience, senior level.' }
       );
     }
-    // Check if AI is asking for confirmation
     else if (
       lowerMessage.includes('ready to start') ||
       lowerMessage.includes('shall we begin') ||
@@ -256,7 +257,6 @@ export const CandidateSession = () => {
         { label: 'I want to change something', value: 'Actually, I want to change the role or focus area.' }
       );
     }
-    // Check if AI is asking about role/position
     else if (
       lowerMessage.includes('what role') ||
       lowerMessage.includes('what position') ||
@@ -270,7 +270,6 @@ export const CandidateSession = () => {
         { label: 'Software Engineer', value: 'I want to practice for a Software Engineer role.' }
       );
     }
-    // Check if AI is asking about focus area / tech stack
     else if (
       lowerMessage.includes('focus area') ||
       lowerMessage.includes('tech stack') ||
@@ -290,15 +289,13 @@ export const CandidateSession = () => {
     setSuggestions(newSuggestions);
   };
 
-  // Get current suggestions for display
   const getSuggestionChips = () => {
     if (appState !== AppState.SETUP_RESUME_CHAT && appState !== AppState.SETUP_ROLE_CHAT) return [];
     return suggestions;
   };
 
-  // Handle when user clicks a suggestion chip
   const handleSuggestionClick = (suggestion) => {
-    setSuggestions([]); // Clear suggestions after clicking
+    setSuggestions([]);
     const message = typeof suggestion === 'string' ? suggestion : suggestion.value;
     handleCoordinatorMessage(message);
   };
@@ -313,13 +310,52 @@ export const CandidateSession = () => {
     setMessages([{ id: initialMsgId, role: 'model', text: '', timestamp: new Date(), isThinking: true }]);
 
     let fullResponse = "";
-    await sendMessageStream(chat, `Hello, I want to practice for an interview in ${language}.`, (chunk) => {
-      fullResponse = chunk;
-      setMessages(prev => prev.map(m => m.id === initialMsgId ? { ...m, text: chunk, isThinking: false } : m));
+    let lastUpdateTime = 0;
+    const updateInterval = 50;
+    
+    const structuredResponse = await sendMessageStream(chat, `Hello, I want to practice for an interview in ${language}.`, (chunk) => {
+      if (chunk.startsWith('{') || (fullResponse.startsWith('{') && chunk.includes('"message"'))) {
+        if (chunk.length > fullResponse.length) {
+          fullResponse = chunk;
+        } else {
+          fullResponse += chunk;
+        }
+      } else {
+        fullResponse += chunk;
+      }
+      
+      const now = Date.now();
+      if (now - lastUpdateTime > updateInterval) {
+        lastUpdateTime = now;
+        try {
+          const parsed = JSON.parse(fullResponse);
+          const displayText = parsed.message || '';
+          if (displayText) {
+            setMessages(prev => prev.map(m => m.id === initialMsgId ? { ...m, text: displayText, isThinking: false } : m));
+          }
+        } catch (e) {
+          const displayText = filterJsonFromText(fullResponse);
+          setMessages(prev => prev.map(m => m.id === initialMsgId ? { ...m, text: displayText || 'Processing...', isThinking: !displayText } : m));
+        }
+      }
     });
+    
+    let displayText = fullResponse;
+    if (structuredResponse && typeof structuredResponse === 'object') {
+      displayText = structuredResponse.message || fullResponse;
+    } else {
+      try {
+        const parsed = JSON.parse(fullResponse);
+        displayText = parsed.message || fullResponse;
+      } catch (e) {
+        displayText = filterJsonFromText(fullResponse);
+      }
+    }
+    
+    setMessages(prev => prev.map(m => m.id === initialMsgId ? { ...m, text: displayText, isThinking: false } : m));
     setIsStreaming(false);
     
-    generateContextualSuggestions(fullResponse);
+    generateContextualSuggestions(displayText);
   };
 
   const filterJsonFromText = (text) => {
@@ -332,7 +368,7 @@ export const CandidateSession = () => {
   const handleCoordinatorMessage = async (text) => {
     if (!chatSessionRef.current) return;
 
-    setSuggestions([]); // Clear suggestions when user sends a message
+    setSuggestions([]);
     const userMsg = { id: generateId(), role: 'user', text, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setIsStreaming(true);
@@ -341,15 +377,67 @@ export const CandidateSession = () => {
     setMessages(prev => [...prev, { id: botMsgId, role: 'model', text: '', timestamp: new Date(), isThinking: true }]);
 
     let fullResponse = "";
-    await sendMessageStream(chatSessionRef.current, text, (chunk) => {
-      fullResponse = chunk;
-      const displayText = filterJsonFromText(chunk);
-      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: displayText || 'Processing...', isThinking: !displayText } : m));
+    let structuredResponse = null;
+    let lastUpdateTime = 0;
+    const updateInterval = 50;
+    
+    structuredResponse = await sendMessageStream(chatSessionRef.current, text, (chunk) => {
+      if (chunk.startsWith('{') || (fullResponse.startsWith('{') && chunk.includes('"message"'))) {
+        if (chunk.length > fullResponse.length) {
+          fullResponse = chunk;
+        } else {
+          fullResponse += chunk;
+        }
+      } else {
+        fullResponse += chunk;
+      }
+      
+      const now = Date.now();
+      
+      if (now - lastUpdateTime > updateInterval) {
+        lastUpdateTime = now;
+        try {
+          const parsed = JSON.parse(fullResponse);
+          const displayText = parsed.message || '';
+          if (displayText) {
+            setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: displayText, isThinking: false } : m));
+          }
+        } catch (e) {
+          const displayText = filterJsonFromText(fullResponse);
+          setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: displayText || 'Processing...', isThinking: !displayText } : m));
+        }
+      }
     });
 
     setIsStreaming(false);
 
-    // Generate new contextual suggestions based on AI response
+    if (structuredResponse && typeof structuredResponse === 'object') {
+      const displayText = structuredResponse.message || filterJsonFromText(fullResponse);
+      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: displayText, isThinking: false } : m));
+      
+      const analysis = chatSessionRef.current?.resumeAnalysis;
+      generateContextualSuggestions(displayText, analysis);
+      
+      if (structuredResponse.READY && structuredResponse.role) {
+        const config = {
+          type: 'role_based',
+          roleDetails: {
+            role: structuredResponse.role,
+            focusArea: structuredResponse.focusArea || 'General',
+            level: structuredResponse.level || 'Mid-Level'
+          },
+          resumeData: resumeContext || undefined,
+          language
+        };
+        setInterviewConfig(config);
+        
+        setTimeout(() => {
+          startInterview(config);
+        }, 1500);
+      }
+      return;
+    }
+
     const analysis = chatSessionRef.current?.resumeAnalysis;
     generateContextualSuggestions(fullResponse, analysis);
 
@@ -426,12 +514,45 @@ export const CandidateSession = () => {
     const botMsgId = generateId();
     setMessages([{ id: botMsgId, role: 'model', text: 'Preparing interview...', timestamp: new Date(), isThinking: true }]);
 
-    const textResponse = await sendMessageStream(chat, "Start the interview now. Introduce yourself briefly and ask 'Tell me about yourself' as your first question.", (chunk) => {
-       setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: chunk, isThinking: false } : m));
+    let fullText = "";
+    let lastUpdateTime = 0;
+    const updateInterval = 50;
+    
+    const structuredResponse = await sendMessageStream(chat, "Start the interview now. Introduce yourself briefly and ask 'Tell me about yourself' as your first question.", (chunk) => {
+       if (chunk.startsWith('{') || (fullText.startsWith('{') && chunk.includes('"response"'))) {
+         if (chunk.length > fullText.length) {
+           fullText = chunk;
+         } else {
+           fullText += chunk;
+         }
+       } else {
+         fullText += chunk;
+       }
+       
+       const now = Date.now();
+       if (now - lastUpdateTime > updateInterval) {
+         lastUpdateTime = now;
+         try {
+           const parsed = JSON.parse(fullText);
+           const displayText = parsed.response || fullText;
+           setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: displayText, isThinking: false } : m));
+         } catch (e) {
+           const responseMatch = fullText.match(/"response"\s*:\s*"([^"]*)/); 
+           const displayText = responseMatch ? responseMatch[1] : fullText.replace(/[{}"]|response:|^\s*/g, '');
+           setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: displayText || 'Preparing...', isThinking: !displayText } : m));
+         }
+       }
     });
     
-    if (textResponse) {
-      const audioBuffer = await generateSpeech(textResponse);
+    let displayText = fullText;
+    if (structuredResponse && typeof structuredResponse === 'object') {
+      displayText = structuredResponse.response || fullText;
+    }
+    
+    setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: displayText, isThinking: false } : m));
+    
+    if (displayText) {
+      const audioBuffer = await generateSpeech(displayText);
       if (audioBuffer) {
         playAudioBuffer(audioBuffer);
       }
@@ -452,14 +573,49 @@ export const CandidateSession = () => {
 
     try {
       let fullResponse = "";
-      await sendMessageStream(chatSessionRef.current, text, (chunk) => {
-        fullResponse = chunk;
-        setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: chunk, isThinking: false } : m));
+      let lastUpdateTime = 0;
+      const updateInterval = 50; 
+      
+      const structuredResponse = await sendMessageStream(chatSessionRef.current, text, (chunk) => {
+        if (chunk.startsWith('{') || (fullResponse.startsWith('{') && chunk.includes('"response"'))) {
+          if (chunk.length > fullResponse.length) {
+            fullResponse = chunk;
+          } else {
+            fullResponse += chunk;
+          }
+        } else {
+          fullResponse += chunk;
+        }
+        
+        const now = Date.now();
+        if (now - lastUpdateTime > updateInterval) {
+          lastUpdateTime = now;
+          try {
+            const parsed = JSON.parse(fullResponse);
+            const displayText = parsed.response || fullResponse;
+            setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: displayText, isThinking: false } : m));
+          } catch (e) {
+            const responseMatch = fullResponse.match(/"response"\s*:\s*"([^"]*)/); 
+            const displayText = responseMatch ? responseMatch[1] : fullResponse.replace(/[{}"]|response:|^\s*/g, '');
+            setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: displayText || 'Thinking...', isThinking: !displayText } : m));
+          }
+        }
       });
       
-      setCurrentQuestionCount(prev => Math.min(prev + 1, totalQuestions));
+      let displayText = fullResponse;
+      let isInterviewComplete = false;
+      let questionNumber = currentQuestionCount;
+      
+      if (structuredResponse && typeof structuredResponse === 'object') {
+        displayText = structuredResponse.response || fullResponse;
+        isInterviewComplete = structuredResponse.isInterviewComplete || false;
+        questionNumber = structuredResponse.questionNumber || currentQuestionCount + 1;
+      }
+      
+      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: displayText, isThinking: false } : m));
+      
+      setCurrentQuestionCount(Math.min(questionNumber, totalQuestions));
 
-      // Update interview duration
       if (activeInterviewId) {
           const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
           api.updateInterview(activeInterviewId, { 
@@ -467,15 +623,14 @@ export const CandidateSession = () => {
           }).catch(err => console.error('Failed to update interview:', err));
       }
 
-      if (fullResponse) {
-         const audioBuffer = await generateSpeech(fullResponse);
+      if (displayText) {
+         const audioBuffer = await generateSpeech(displayText);
          if (audioBuffer) {
            playAudioBuffer(audioBuffer);
          }
       }
       
-      // Check if interview should end
-      if (currentQuestionCount >= totalQuestions) {
+      if (isInterviewComplete || currentQuestionCount >= totalQuestions) {
           const fullHistory = convertHistoryToMessages(chatSessionRef.current.history);
           setTimeout(() => handleEndInterview(fullHistory), 4000);
       }
@@ -506,21 +661,29 @@ export const CandidateSession = () => {
       const botMsgId = generateId();
       setMessages(prev => [...prev, { id: botMsgId, role: 'model', text: 'Listening and thinking...', timestamp: new Date(), isThinking: true }]);
 
-      // Upload audio to S3 in background (non-blocking)
       if (activeInterviewId) {
         api.uploadAudioRecording(
           activeInterviewId, 
           audioBlob, 
           currentQuestionCount,
-          0 // duration will be calculated on backend if needed
+          0 
         ).catch(err => console.error('Audio upload failed:', err));
       }
 
-      const textResponse = await sendAudioMessage(chatSessionRef.current, base64Audio, audioBlob.type);
+      const response = await sendAudioMessage(chatSessionRef.current, base64Audio, audioBlob.type);
       
-      setCurrentQuestionCount(prev => Math.min(prev + 1, totalQuestions));
-
-      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: textResponse } : m));
+      let displayText = response;
+      let isInterviewComplete = false;
+      let questionNumber = currentQuestionCount + 1;
+      
+      if (response && typeof response === 'object') {
+        displayText = response.response || JSON.stringify(response);
+        isInterviewComplete = response.isInterviewComplete || false;
+        questionNumber = response.questionNumber || currentQuestionCount + 1;
+      }
+      
+      setCurrentQuestionCount(Math.min(questionNumber, totalQuestions));
+      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: displayText, isThinking: false } : m));
       
       if (activeInterviewId) {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -529,8 +692,9 @@ export const CandidateSession = () => {
         });
       }
 
-      const audioBuffer = await generateSpeech(textResponse);
-      if (currentQuestionCount >= totalQuestions) {
+      const audioBuffer = await generateSpeech(displayText);
+      
+      if (isInterviewComplete || currentQuestionCount >= totalQuestions) {
           const fullHistory = convertHistoryToMessages(chatSessionRef.current.history);
           setTimeout(() => handleEndInterview(fullHistory), 4000);
       }
@@ -538,7 +702,6 @@ export const CandidateSession = () => {
       if (audioBuffer) {
         playAudioBuffer(audioBuffer);
       }
-      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, isThinking: false } : m));
 
     } catch (error) {
       console.error("Interview Error:", error);
@@ -565,21 +728,42 @@ export const CandidateSession = () => {
     setAppState(AppState.INTERVIEW_FEEDBACK); 
     setMessages(prev => [...prev, { id: generateId(), role: 'system', text: "Interview ended. Generating detailed performance report...", timestamp: new Date() }]);
     
-    const msgsToAnalyze = finalMessages || messages;
-    const feedback = await generateFeedback(msgsToAnalyze, language);
-    setFeedbackData(feedback);
+    try {
+      const msgsToAnalyze = finalMessages || messages;
+      const feedback = await generateFeedback(msgsToAnalyze, language, activeInterviewId);
+      
+      if (!feedback || typeof feedback.overallScore === 'undefined') {
+        console.error("Invalid feedback received:", feedback);
+        setFeedbackData({
+          overallScore: 0,
+          communicationScore: 0,
+          technicalScore: 0,
+          strengths: ["Feedback generation encountered an issue"],
+          weaknesses: ["Please try again"],
+          suggestion: "We couldn't generate detailed feedback for this session. Please try another interview."
+        });
+      } else {
+        setFeedbackData(feedback);
+      }
 
-    if (feedback && activeInterviewId) {
-      try {
+      if (feedback && activeInterviewId) {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
         await api.updateInterview(activeInterviewId, {
           feedback: feedback,
           status: 'COMPLETED',
           durationSeconds: elapsed
         });
-      } catch (err) {
-        console.error("Failed to save interview", err);
       }
+    } catch (err) {
+      console.error("Failed to generate/save feedback", err);
+      setFeedbackData({
+        overallScore: 0,
+        communicationScore: 0,
+        technicalScore: 0,
+        strengths: ["Interview completed"],
+        weaknesses: ["Feedback generation failed"],
+        suggestion: "We encountered an error while generating your feedback. Please check your interview history for details."
+      });
     }
   };
 
