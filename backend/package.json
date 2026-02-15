@@ -21,8 +21,10 @@
         "jsonwebtoken": "^9.0.2",
         "mongoose": "^9.1.5",
         "multer": "^2.0.2",
+        "node-edge-tts": "^1.2.10",
         "nodemailer": "^7.0.13",
-        "uuid": "^13.0.0"
+        "uuid": "^13.0.0",
+        "ws": "^8.19.0"
     },
     "devDependencies": {
         "nodemon": "^3.0.2"
