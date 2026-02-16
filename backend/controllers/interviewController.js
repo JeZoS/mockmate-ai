@@ -1,4 +1,4 @@
-const Interview = require('../models/Interview');
+const Interview = require("../models/Interview");
 
 // Create new interview session
 exports.createInterview = async (req, res) => {
@@ -10,9 +10,9 @@ exports.createInterview = async (req, res) => {
       role,
       focusArea,
       level,
-      language: language || 'English',
-      status: 'IN_PROGRESS',
-      history: history || []
+      language: language || "English",
+      status: "IN_PROGRESS",
+      history: history || [],
     });
     res.status(201).json(interview);
   } catch (error) {
@@ -23,10 +23,14 @@ exports.createInterview = async (req, res) => {
 // Get all non-deleted interviews for user
 exports.getMyInterviews = async (req, res) => {
   try {
-    const interviews = await Interview.find({ 
+    const interviews = await Interview.find({
       user: req.user._id,
-      isDeleted: false 
-    }).sort({ updatedAt: -1 });
+      isDeleted: false,
+    })
+      .select("-history -audioRecordings -tokenUsage.breakdown") // Exclude large fields
+      .sort({ updatedAt: -1 })
+      .lean();
+
     res.json(interviews);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -39,11 +43,11 @@ exports.getInterview = async (req, res) => {
     const interview = await Interview.findOne({
       _id: req.params.id,
       user: req.user._id,
-      isDeleted: false
+      isDeleted: false,
     });
-    
+
     if (!interview) {
-      return res.status(404).json({ message: 'Interview not found' });
+      return res.status(404).json({ message: "Interview not found" });
     }
     res.json(interview);
   } catch (error) {
@@ -58,11 +62,11 @@ exports.updateInterview = async (req, res) => {
   try {
     const interview = await Interview.findOne({
       _id: req.params.id,
-      user: req.user._id
+      user: req.user._id,
     });
 
     if (!interview) {
-      return res.status(404).json({ message: 'Interview not found' });
+      return res.status(404).json({ message: "Interview not found" });
     }
 
     if (history) interview.history = history;
@@ -82,16 +86,16 @@ exports.deleteInterview = async (req, res) => {
   try {
     const interview = await Interview.findOne({
       _id: req.params.id,
-      user: req.user._id
+      user: req.user._id,
     });
 
     if (!interview) {
-      return res.status(404).json({ message: 'Interview not found' });
+      return res.status(404).json({ message: "Interview not found" });
     }
 
     interview.isDeleted = true;
     await interview.save();
-    res.json({ message: 'Interview deleted' });
+    res.json({ message: "Interview deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -1,7 +1,16 @@
-import React from 'react';
-import { X, LogOut, User, LayoutDashboard, PlayCircle, FileText, Settings } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAppStore } from '../store/useAppStore';
+import React from "react";
+import {
+  X,
+  LogOut,
+  User,
+  LayoutDashboard,
+  PlayCircle,
+  FileText,
+  Settings,
+  ChartNoAxesCombined
+} from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAppStore } from "../store/useAppStore";
 
 export const SideDrawer = ({ isOpen, onClose }) => {
   const { user, setUser, resetSession } = useAppStore();
@@ -11,10 +20,10 @@ export const SideDrawer = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
     setUser(null);
     resetSession();
-    navigate('/mockmate/login');
+    navigate("/mockmate/login");
   };
 
   const handleNavigation = (path) => {
@@ -23,19 +32,39 @@ export const SideDrawer = ({ isOpen, onClose }) => {
   };
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/mockmate/candidate/dashboard' },
-    { icon: PlayCircle, label: 'Practice Interview', path: '/mockmate/candidate/practice' },
-    { icon: Settings, label: 'Profile Settings', path: '/mockmate/candidate/profile' },
+    {
+      icon: LayoutDashboard,
+      label: "Dashboard",
+      path: "/mockmate/candidate/dashboard",
+    },
+    {
+      icon: PlayCircle,
+      label: "Practice Interview",
+      path: "/mockmate/candidate/practice",
+    },
+    {
+      icon: Settings,
+      label: "Profile Settings",
+      path: "/mockmate/candidate/profile",
+    },
   ];
+
+  if (user?.isAdmin) {
+    menuItems.push({
+      icon: ChartNoAxesCombined,
+      label: "Admin Dashboard",
+      path: "/mockmate/admin",
+    });
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
-      
+
       {/* Drawer */}
       <div className="relative w-80 bg-white shadow-2xl h-full flex flex-col animate-in slide-in-from-right duration-300">
         <div className="p-6 border-b border-slate-100">
@@ -51,26 +80,33 @@ export const SideDrawer = ({ isOpen, onClose }) => {
               <User size={24} />
             </div>
             <div className="overflow-hidden">
-              <h3 className="font-semibold text-slate-900">{user?.name || user?.email.split('@')[0]}</h3>
-              <p className="text-xs text-slate-500">{user?.email || 'user@example.com'}</p>
+              <h3 className="font-semibold text-slate-900">
+                {user?.name || user?.email.split("@")[0]}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {user?.email || "user@example.com"}
+              </p>
             </div>
           </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {menuItems.map((item) => {
-             const isActive = location.pathname === item.path;
-             return (
-              <button 
+            const isActive = location.pathname === item.path;
+            return (
+              <button
                 key={item.path}
                 onClick={() => handleNavigation(item.path)}
                 className={`flex items-center gap-3 w-full p-3 rounded-xl transition-all text-left ${
-                  isActive 
-                    ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm' 
-                    : 'text-slate-600 hover:text-blue-600 hover:bg-slate-50'
+                  isActive
+                    ? "bg-blue-50 text-blue-700 font-semibold shadow-sm"
+                    : "text-slate-600 hover:text-blue-600 hover:bg-slate-50"
                 }`}
               >
-                <item.icon size={20} className={isActive ? 'text-blue-600' : 'text-slate-400'} />
+                <item.icon
+                  size={20}
+                  className={isActive ? "text-blue-600" : "text-slate-400"}
+                />
                 <span>{item.label}</span>
               </button>
             );
@@ -78,7 +114,7 @@ export const SideDrawer = ({ isOpen, onClose }) => {
         </nav>
 
         <div className="p-4 border-t border-slate-100">
-          <button 
+          <button
             onClick={handleLogout}
             className="flex items-center gap-3 w-full p-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors text-left font-medium"
           >

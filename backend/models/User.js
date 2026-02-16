@@ -1,109 +1,117 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const UserSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true
+    required: true,
   },
   email: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
   },
   password: {
     type: String,
-    required: true
+    required: true,
   },
   isAdmin: {
     type: Boolean,
-    default: false
+    default: false,
+  },
+  isTestUser: {
+    type: Boolean,
+    default: false,
   },
   // Profile fields
   phone: {
     type: String,
-    default: ''
+    default: "",
   },
   experienceLevel: {
     type: String,
-    enum: ['fresher', 'junior', 'mid', 'senior', 'lead', 'manager', ''],
-    default: ''
+    enum: ["fresher", "junior", "mid", "senior", "lead", "manager", ""],
+    default: "",
   },
   yearsOfExperience: {
     type: Number,
-    default: 0
+    default: 0,
   },
   currentRole: {
     type: String,
-    default: ''
+    default: "",
   },
   targetRole: {
     type: String,
-    default: ''
+    default: "",
   },
-  skills: [{
-    type: String
-  }],
+  skills: [
+    {
+      type: String,
+    },
+  ],
   linkedinUrl: {
     type: String,
-    default: ''
+    default: "",
   },
   githubUrl: {
     type: String,
-    default: ''
+    default: "",
   },
   portfolioUrl: {
     type: String,
-    default: ''
+    default: "",
   },
   roleType: {
     type: String,
-    enum: ['tech', 'non-tech', ''],
-    default: ''
+    enum: ["tech", "non-tech", ""],
+    default: "",
   },
   resumeUrl: {
     type: String,
-    default: ''
+    default: "",
   },
   resumeS3Key: {
     type: String,
-    default: ''
+    default: "",
   },
   resumeFileName: {
     type: String,
-    default: ''
+    default: "",
   },
   profileCompleted: {
     type: Boolean,
-    default: false
+    default: false,
   },
   emailVerified: {
     type: Boolean,
-    default: false
+    default: false,
   },
   emailOtp: {
     type: String,
-    default: ''
+    default: "",
   },
   emailOtpExpiry: {
     type: Date,
-    default: null
+    default: null,
   },
   createdAt: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   updatedAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
-// Update timestamp on save
-UserSchema.pre('save', async function() {
+UserSchema.index({ name: 1 });
+UserSchema.index({ createdAt: -1 });
+UserSchema.index({ isTestUser: 1 });
+UserSchema.pre("save", async function () {
   this.updatedAt = Date.now();
-  
-  if (!this.isModified('password')) {
+
+  if (!this.isModified("password")) {
     return;
   }
   const salt = await bcrypt.genSalt(10);
@@ -111,8 +119,8 @@ UserSchema.pre('save', async function() {
 });
 
 // Match password
-UserSchema.methods.matchPassword = async function(enteredPassword) {
+UserSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-module.exports = mongoose.model('User', UserSchema);
+module.exports = mongoose.model("User", UserSchema);
