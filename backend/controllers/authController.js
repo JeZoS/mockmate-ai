@@ -70,8 +70,9 @@ exports.registerUser = async (req, res) => {
       emailOtpExpiry: otpExpiry,
       emailVerified: false,
       isTestUser:
-        req.get("host").includes("localhost") ||
-        req.get("host").includes("127.0.0.1"),
+        process.env.NODE_ENV &&
+        (process.env.NODE_ENV === "development" ||
+          process.env.NODE_ENV === "local"),
     });
 
     // Send OTP email
@@ -279,8 +280,9 @@ exports.googleLogin = async (req, res) => {
           Math.random().toString(36).slice(-8) +
           Math.random().toString(36).slice(-8),
         isTestUser:
-          req.get("host").includes("localhost") ||
-          req.get("host").includes("127.0.0.1"),
+          process.env.NODE_ENV &&
+          (process.env.NODE_ENV === "development" ||
+            process.env.NODE_ENV === "local"),
       });
     }
 
